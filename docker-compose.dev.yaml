@@ -1,0 +1,67 @@
+# Development environment with hot reload for both services
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODE: dev
+    image: fsiot-backend:dev
+    container_name: fsiot-backend-dev
+    restart: unless-stopped
+
+    ports:
+      - "3000:3000"
+
+    extra_hosts:
+      - "host-gateway:host-gateway"
+
+    volumes:
+      - ./backend/src:/app/backend/src      # Only mount source
+      - ./backend/index.js:/app/backend/index.js
+      - ./backend/node_modules:/app/backend/node_modules  # Preserve install
+      - ./backend/data:/app/backend/data
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      - NODE_ENV=development
+
+    # No resource limits in dev for better debugging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODE: dev
+    image: fsiot-frontend:dev
+    container_name: fsiot-frontend-dev
+    restart: unless-stopped
+
+    ports:
+      - "5173:5173"
+
+    depends_on:
+      - backend
+
+    volumes:
+      # Mount source code for Vite HMR hot reload
+      - ./frontend:/app/frontend/src
+      - ./frontend/node_modules:/app/frontend/node_modules
+
+    environment:
+      - NODE_ENV=development
+      - VITE_HOST=0.0.0.0
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

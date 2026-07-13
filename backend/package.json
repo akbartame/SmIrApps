@@ -1,0 +1,31 @@
+{
+  "type": "module",
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "FullStackIOT Backend - MQTT Subscriber with SQLite Persistence",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "archive:monthly": "node src/scripts/monthlyArchiver.js",
+    "pm2:start": "pm2 start index.js --name 'fsiot-backend'",
+    "pm2:stop": "pm2 stop fsiot-backend",
+    "pm2:restart": "pm2 restart fsiot-backend",
+    "pm2:logs": "pm2 logs fsiot-backend",
+    "pm2:setup": "pm2 startup && pm2 save"
+  },
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "better-sqlite3": "*",
+    "dotenv": "*",
+    "express": "*",
+    "fast-csv": "^5.0.7",
+    "morgan": "*",
+    "mqtt": "*",
+    "node-cron": "^4.2.1",
+    "parquetjs-lite": "^0.8.7"
+  },
+  "devDependencies": {
+    "nodemon": "*"
+  }
+}

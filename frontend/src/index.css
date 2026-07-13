@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+@import "tailwindcss";
+
+/* 1. Base Variables (Default = Dark Mode) 
+   Kita pertahankan ini agar Recharts tetap bisa memanggil var(--accent) dll.
+*/
+:root {
+  --bg-base: #0a0a0b;
+  --bg-surface: #111114;
+  --bg-raised: #18181d;
+  --border: #2a2a35;
+  --border-bright: #3a3a48;
+  --text-primary: #e8e8f0;
+  --text-secondary: #8888a0;
+  --text-muted: #4a4a60;
+  --accent: #f5a623;
+  --accent-dim: #b87a1a;
+  --green: #21c45d;
+  --bg-green: #162d1a;
+  --border-green: #2a5a3a;
+  --red: #ef4444;
+  --yellow: #eab308;
+}
+
+/* 2. Integrasi Tailwind v4 Theme 
+   Ini mengubah var di atas menjadi class Tailwind yang sah (misal: bg-base, text-muted)
+*/
+@theme {
+  --color-base: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-raised: var(--bg-raised);
+  --color-border-subtle: var(--border);
+  --color-border-bright: var(--border-bright);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'IBM Plex Sans', sans-serif;
+
+  /* Menambahkan animasi kustom agar bisa dipanggil dengan class 'animate-fade-up' */
+  --animate-fade-up: fadeUp 0.3s ease forwards;
+}
+
+/* 3. Global Resets & Elemen Dasar */
+@layer base {
+  html, body, #root {
+    @apply h-full m-0 p-0;
+  }
+  
+  body {
+    @apply bg-base text-text-primary font-sans antialiased;
+  }
+
+  .datetime-input {
+    color-scheme: dark;
+  }
+}
+
+/* 4. Scrollbar (Dipertahankan menggunakan CSS murni karena belum ada standar native Tailwind yang efisien lintas browser) */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* 5. Keyframes murni untuk animasi fade-up */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
