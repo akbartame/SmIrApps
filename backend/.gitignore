@@ -1,21 +1,5 @@
-# nodejs
 node_modules/
-dist/
-build/
-
-# environment variables
-.env
-
-# logs and databases
 data/
+archive/
+.env
 *.log
-*.db
-
-# md files
-*.md
-
-# Ignored JavaScript files
-IGNORED*.js
-
-# Ignore Parquet files
-parquet/
