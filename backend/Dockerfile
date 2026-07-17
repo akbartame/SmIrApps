@@ -1,69 +1,27 @@
-# ── Backend: Multi-mode Dockerfile ────────────────────
-ARG BUILD_MODE=prod
+# --- deps: has the toolchain better-sqlite3 needs to build its native addon ---
+FROM node:20-bookworm-slim AS deps
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev
 
-# ── Production build stage ────────────────────────────
-FROM node:24.5.0-alpine AS prod-builder
-
-RUN apk add --no-cache python3 make g++
-
-WORKDIR /app/backend
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . ./
-
-# ── Production runtime stage ──────────────────────────
-FROM node:24.5.0-alpine AS prod
-
-WORKDIR /app/backend
-
-# Install wget for health checks
-RUN apk add --no-cache wget && \
-    adduser -D -h /home/appuser appuser && \
-    mkdir -p /app/backend/data && \
-    chown appuser:appuser /app/backend/data
-
-COPY --from=prod-builder --chown=appuser:appuser /app/backend/node_modules ./node_modules
-COPY --from=prod-builder --chown=appuser:appuser /app/backend/src          ./src
-COPY --from=prod-builder --chown=appuser:appuser /app/backend/index.js     ./index.js
-COPY --from=prod-builder --chown=appuser:appuser /app/backend/package.json ./package.json
-
+# --- runtime: no build toolchain, just node_modules + app code ---
+FROM node:20-bookworm-slim AS runtime
+WORKDIR /app
 ENV NODE_ENV=production
 
-USER appuser
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# DB_PATH / ARCHIVE_OUT_DIR default to ./data and ./archive (see config/index.js);
+# docker-compose.yml overrides these to /app/data and /app/archive explicitly
+# and mounts named volumes there.
+RUN mkdir -p data archive \
+    && addgroup --system app && adduser --system --ingroup app app \
+    && chown -R app:app /app
+USER app
 
 EXPOSE 3000
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD wget -qO- http://127.0.0.1:3000/health || exit 1
-
 CMD ["node", "index.js"]
-
-# ── Development stage ──────────────────────────────────
-FROM node:24.5.0-alpine AS dev
-
-RUN apk add --no-cache python3 make g++
-
-WORKDIR /app/backend
-
-RUN adduser -D -h /home/appuser appuser && \
-    mkdir -p /app/backend/data && \
-    chown appuser:appuser /app/backend/data
-
-COPY package*.json ./
-RUN npm ci
-
-COPY . ./
-RUN chown -R appuser:appuser /app/backend
-
-ENV NODE_ENV=development
-
-USER appuser
-
-EXPOSE 3000
-
-CMD ["npm", "run", "dev"]
-
-# ── Final stage: select based on BUILD_MODE ───────────
-FROM ${BUILD_MODE}

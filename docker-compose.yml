@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: smir-backend
+    restart: unless-stopped
+    environment:
+      MQTT_URL: mqtt://broker.hivemq.com:1883
+      MQTT_ACK_TIMEOUT_MS: "3000"
+      MQTT_ONLINE_TIMEOUT_MS: "20000"
+      MQTT_RECONCILE_STALE_MS: "15000"
+      DB_PATH: /app/data/smir.db
+      API_PORT: "3000"
+      ARCHIVE_OUT_DIR: /app/archive
+      ARCHIVE_RETENTION_DAYS: "45"
+    ports:
+      - "3000:3000"
+    volumes:
+      - backend_data:/app/data
+      - backend_archive:/app/archive
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: smir-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  backend_data:
+  backend_archive:
+
+# The monthly Parquet archiver is NOT run automatically by this compose file
+# — script/archive-to-parquet.js is a one-shot script, not a long-running
+# service, and I'm not going to bolt on a cron sidecar you didn't ask for.
+# Run it on demand:
+#   docker compose run --rm backend node script/archive-to-parquet.js
+# Or schedule it from the host, e.g. a crontab line:
+#   0 3 1 * * cd /path/to/smir-app && docker compose run --rm backend node script/archive-to-parquet.js
