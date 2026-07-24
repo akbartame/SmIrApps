@@ -9,6 +9,16 @@ import {
 } from 'recharts';
 import { formatClockTime } from '../../lib/format';
 
+/**
+ * Dual-axis chart for voltage and current from INA226 sensor (sensor nodes 3–4).
+ *
+ * Voltage (bus_voltage_mv): Median of 5 samples, plotted in volts (converted from mV).
+ * Current (current_ma): Median of 5 samples, already in milliamps (no conversion needed)[cite: 3].
+ * Negative current indicates power drain direction.
+ * 
+ * Data points filtered by sensor_ok bit0 (INA226 OK) are pre-processed to null 
+ * if unreliable, ensuring clean gaps in the chart.
+ */
 export function VoltageCurrentChart({
   data,
 }: {
@@ -70,7 +80,7 @@ export function VoltageCurrentChart({
             strokeWidth={1.75}
             dot={false}
             isAnimationActive={false}
-            connectNulls
+            connectNulls={false}
           />
           <Line
             yAxisId="ma"
@@ -81,7 +91,7 @@ export function VoltageCurrentChart({
             strokeWidth={1.75}
             dot={false}
             isAnimationActive={false}
-            connectNulls
+            connectNulls={false}
           />
         </LineChart>
       </ResponsiveContainer>

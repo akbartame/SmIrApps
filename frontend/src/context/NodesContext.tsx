@@ -131,8 +131,8 @@ export function NodesProvider({ children }: { children: ReactNode }) {
       mode: payload.mode,
       target_node_id: 'target_node_id' in payload ? payload.target_node_id : null,
       solenoid_state: 'solenoid_state' in payload ? payload.solenoid_state : null,
-      auto_on_level: 'auto_on_level' in payload ? payload.auto_on_level : null,
-      auto_off_level: 'auto_off_level' in payload ? payload.auto_off_level : null,
+      auto_on_level: null,  // Deprecated / removed in new spec
+      auto_off_level: null, // Deprecated / removed in new spec
       status: payload.mode === 0 ? 'sent' : 'pending',
       master_seq: null,
       requested_at: Date.now(),

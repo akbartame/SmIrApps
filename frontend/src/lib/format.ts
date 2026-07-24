@@ -7,11 +7,6 @@ const UNREADABLE = 'Sensor tidak terbaca';
  * "no echo / sensor fault", and the two are not distinguished in the
  * payload. Per spec, this UI always renders 0 as "sensor tidak terbaca"
  * rather than a valid 0mm distance.
- *
- * Caveat worth knowing (not hidden, just not overridable from the UI): if
- * the physical setup can ever legitimately produce a true 0mm reading,
- * this will mask it identically to a sensor fault. That's a limitation of
- * the payload itself, not something this formatting choice can fix.
  */
 export function formatDistanceMm(distance_mm: number): string {
   if (distance_mm === 0) return UNREADABLE;
@@ -29,7 +24,7 @@ export function isDistanceReadable(distance_mm: number): boolean {
  */
 export function formatTemperatureC(temperature_c_x100: number): string {
   if (temperature_c_x100 === -12700) return UNREADABLE;
-  return `${(temperature_c_x100 / 100).toFixed(1)} °C`;
+  return `${(temperature_c_x100 / 100).toFixed(1)}°C`;
 }
 
 export function isTemperatureReadable(temperature_c_x100: number): boolean {
@@ -38,10 +33,17 @@ export function isTemperatureReadable(temperature_c_x100: number): boolean {
 
 /**
  * bus_voltage_mv / current_ma are only meaningful when sensor_ok's bit0 (the
- * INA226 begin() success flag) was set on that read cycle.
+ * INA226 begin() success flag) was set on that read cycle[cite: 3].
  */
 export function isPowerReadingReliable(sensor_ok: number): boolean {
-  return (sensor_ok & 1) === 1;
+  return (sensor_ok & 0x01) !== 0; // bit0 = INA226 OK[cite: 3]
+}
+
+/**
+ * Check if ultrasonic water sensor reading is reliable based on sensor_ok bit1[cite: 3].
+ */
+export function isWaterReadingReliable(sensor_ok: number): boolean {
+  return (sensor_ok & 0x02) !== 0; // bit1 = ultrasonic echo OK[cite: 3]
 }
 
 export function formatVoltage(bus_voltage_mv: number): string {
@@ -51,6 +53,29 @@ export function formatVoltage(bus_voltage_mv: number): string {
 export function formatCurrent(current_ma: number): string {
   const sign = current_ma > 0 ? '+' : '';
   return `${sign}${current_ma.toFixed(1)} mA`;
+}
+
+/**
+ * Format water level percentage and raw distance for calibration verification[cite: 3].
+ */
+export function formatWaterLevel(water_level: number, water_distance_mm: number, sensor_ok: number): string {
+  if (!isWaterReadingReliable(sensor_ok)) {
+    return `Sensor tidak terbaca (raw: ${water_distance_mm}mm)`;
+  }
+  return `${water_level}% (${water_distance_mm} mm)`;
+}
+
+/**
+ * Interpret sensor_ok bitmask for diagnostics display[cite: 3].
+ */
+export function formatSensorHealth(sensor_ok: number): {
+  powerMeter: string;
+  waterSensor: string;
+} {
+  return {
+    powerMeter: (sensor_ok & 0x01) !== 0 ? '✓ Power OK' : '✗ Voltage/current unreliable',
+    waterSensor: (sensor_ok & 0x02) !== 0 ? '✓ Water sensor OK' : '✗ Water level unreliable',
+  };
 }
 
 export function formatRelativeTime(ms: number | null): string {
@@ -82,4 +107,17 @@ export function computeFlowDelta(
   const seconds = (curr.received_at - prev.received_at) / 1000;
   if (seconds <= 0) return null;
   return { pulses: curr.flow_pulses - prev.flow_pulses, seconds };
+}
+
+/**
+ * Konstanta kalibrasi sensor aliran air.
+ * Ganti nilai 7.5 dengan konstanta dari datasheet sensor Anda.
+ * YF-S201 = 7.5 | YF-S401 = 98 | YF-B7 = 11
+ */
+export const FLOW_CALIBRATION_CONSTANT = 7.5;
+
+export function formatFlowRateLMin(pulses_per_sec: number | null): string {
+  if (pulses_per_sec === null) return 'N/A';
+  const lMin = pulses_per_sec / FLOW_CALIBRATION_CONSTANT;
+  return `${lMin.toFixed(2)} L/min`;
 }

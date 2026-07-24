@@ -1,15 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNodes } from '../../context/NodesContext';
+import { api } from '../../lib/api';
 
 const MODE_LABEL: Record<number, string> = {
   0: 'Off',
   1: 'Manual',
-  2: 'Auto',
 };
 
 export function SystemStatusBar() {
   const { masterStatus, wsStatus, publishCommand } = useNodes();
   const [sendingOff, setSendingOff] = useState(false);
+  const [backendMqttOk, setBackendMqttOk] = useState(false);
+
+  // Polling kesehatan backend untuk mendapatkan status koneksi MQTT-nya ke broker
+  useEffect(() => {
+    let mounted = true;
+    const checkMqttHealth = async () => {
+      try {
+        const res = await api.getDiagnosticsHealth();
+        if (mounted) setBackendMqttOk(res.mqtt_connected);
+      } catch (err) {
+        if (mounted) setBackendMqttOk(false);
+      }
+    };
+
+    checkMqttHealth(); // Cek langsung saat mount
+    const interval = setInterval(checkMqttHealth, 5000); // Polling setiap 5 detik
+    
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   async function turnAllOff() {
     setSendingOff(true);
@@ -29,7 +51,6 @@ export function SystemStatusBar() {
           </h1>
           <p className="text-xs text-ink-faint mt-0.5">Live monitoring & kontrol irigasi</p>
         </div>
-
         <div className="flex items-center gap-4 text-xs">
           <Pill
             label="Realtime"
@@ -38,8 +59,8 @@ export function SystemStatusBar() {
             badText={wsStatus === 'connecting' ? 'Menyambung…' : 'Terputus'}
           />
           <Pill
-            label="MQTT"
-            ok={masterStatus?.mqtt_connected ?? false}
+            label="MQTT Backend"
+            ok={backendMqttOk}
             okText="Terhubung"
             badText="Terputus"
           />
@@ -49,7 +70,6 @@ export function SystemStatusBar() {
               {masterStatus ? MODE_LABEL[masterStatus.mode] ?? masterStatus.mode : '—'}
             </span>
           </div>
-
           <button
             type="button"
             disabled={sendingOff}

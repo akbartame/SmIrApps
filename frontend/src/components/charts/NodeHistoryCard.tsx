@@ -5,7 +5,7 @@ import { VoltageCurrentChart } from './VoltageCurrentChart';
 import { OnlineBadge } from '../nodes/OnlineBadge';
 import { useNodeHistory } from '../../hooks/useNodeHistory';
 import { useNodes } from '../../context/NodesContext';
-import { computeFlowDelta, isTemperatureReadable } from '../../lib/format';
+import { computeFlowDelta, isTemperatureReadable, FLOW_CALIBRATION_CONSTANT } from '../../lib/format';
 import type { LoraSensorData, RelaySensorData } from '../../types';
 
 export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; rangeMs: number }) {
@@ -22,22 +22,23 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
     [points]
   );
 
+  // Telah diperbarui untuk menggunakan water_level tunggal alih-alih a/b[cite: 3]
   const waterLevelData = useMemo(
     () =>
       sensorPoints.map((p) => ({
         x: p.received_at,
-        water_level_a: p.water_level_a,
-        water_level_b: p.water_level_b,
+        water_level: p.water_level,
       })),
     [sensorPoints]
   );
 
+  // Memastikan pembacaan andal menggunakan bitmask sensor_ok[cite: 3]
   const voltageCurrentData = useMemo(
     () =>
       sensorPoints.map((p) => ({
         x: p.received_at,
-        voltage_v: (p.sensor_ok & 1) === 1 ? p.bus_voltage_mv / 1000 : null,
-        current_ma: (p.sensor_ok & 1) === 1 ? p.current_ma : null,
+        voltage_v: (p.sensor_ok & 0x01) !== 0 ? p.bus_voltage_mv / 1000 : null,
+        current_ma: (p.sensor_ok & 0x01) !== 0 ? p.current_ma : null,
       })),
     [sensorPoints]
   );
@@ -53,13 +54,19 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
     [relayPoints]
   );
 
+  // Kalkulasi flow rate dalam L/menit
   const flowRateData = useMemo(() => {
-    const out: { x: number; pulses_per_sec: number | null }[] = [];
+    const out: { x: number; l_per_min: number | null }[] = [];
     for (let i = 1; i < relayPoints.length; i++) {
       const delta = computeFlowDelta(relayPoints[i - 1], relayPoints[i]);
+      let l_per_min = null;
+      if (delta) {
+        const pulses_per_sec = delta.pulses / delta.seconds;
+        l_per_min = Number((pulses_per_sec / FLOW_CALIBRATION_CONSTANT).toFixed(2));
+      }
       out.push({
         x: relayPoints[i].received_at,
-        pulses_per_sec: delta ? Number((delta.pulses / delta.seconds).toFixed(2)) : null,
+        l_per_min,
       });
     }
     return out;
@@ -89,14 +96,14 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
             />
           </div>
           <div>
-            <p className="text-[11px] text-ink-faint mb-1">Flow rate (pulsa/dtk)</p>
-            <p className="text-[10px] text-ink-faint mb-1">
-              Belum dikalibrasi ke L/menit — dokumentasi tidak mencantumkan konstanta
-              pulsa-per-liter, jadi ditampilkan sebagai laju pulsa mentah.
-            </p>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[11px] text-ink-faint">Flow rate (L/menit)</p>
+              <p className="text-[9px] text-ink-faint">Konstanta: {FLOW_CALIBRATION_CONSTANT}</p>
+            </div>
             <HistoryChart
               data={flowRateData}
-              lines={[{ dataKey: 'pulses_per_sec', name: 'Flow', color: '#1B6B76' }]}
+              lines={[{ dataKey: 'l_per_min', name: 'Flow', color: '#1B6B76' }]}
+              yUnit=" L/m"
             />
           </div>
         </div>
@@ -107,8 +114,7 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
             <HistoryChart
               data={waterLevelData}
               lines={[
-                { dataKey: 'water_level_a', name: 'Level A', color: '#1B6B76' },
-                { dataKey: 'water_level_b', name: 'Level B', color: '#8A9A9D' },
+                { dataKey: 'water_level', name: 'Level Air', color: '#1B6B76' }, // Menghapus line untuk Level B[cite: 3]
               ]}
               yUnit="%"
             />

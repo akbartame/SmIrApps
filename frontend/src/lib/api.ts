@@ -15,19 +15,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   getAllLatestNodes: () => request<NodesensorMessage[]>('/nodes'),
-
   getNodeHistoryRange: (nodeId: number, fromMs: number, toMs: number) =>
     request<NodesensorMessage[]>(
       `/nodes/${nodeId}/history?from=${fromMs}&to=${toMs}&limit=20000`
     ),
-
   getMasterStatus: () => request<MasterHeartbeat>('/status'),
-
   postControl: (payload: ControlPayload) =>
     request<{ command_id: number; published: ControlPayload; note: string }>('/control', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-
   getCommand: (id: number) => request<CommandRecord>(`/commands/${id}`),
+  // Tambahan untuk mengambil status koneksi MQTT dari backend
+  getDiagnosticsHealth: () => 
+    request<{ backend_online: boolean; mqtt_connected: boolean }>('/diagnostics/health'),
 };
