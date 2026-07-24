@@ -170,6 +170,92 @@ function getStalePending(cutoffTs) {
   return stmtGetStalePending.all(cutoffTs);
 }
 
+/**
+ * Extract water level from sensor payload.
+ * Handles both old (water_level_a, water_level_b) and new format.
+ * Returns null if neither format present.
+ */
+function getWaterLevelFromPayload(payload) {
+  const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
+
+  // New format: water_level + water_distance_mm
+  if (parsed.water_level !== undefined && parsed.water_distance_mm !== undefined) {
+    return {
+      level_pct: parsed.water_level,
+      distance_mm: parsed.water_distance_mm,
+      source: 'new',
+    };
+  }
+
+  // Old format: water_level_a + water_level_b (average them)
+  if (parsed.water_level_a !== undefined && parsed.water_level_b !== undefined) {
+    return {
+      level_pct: (parsed.water_level_a + parsed.water_level_b) / 2,
+      distance_mm: null,
+      source: 'old',
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Interpret sensor_ok bitmask.
+ * Returns { powerMeterOk, waterSensorOk }
+ */
+function decodeSensorOk(sensor_ok) {
+  return {
+    powerMeterOk: (sensor_ok & 0x01) !== 0,
+    waterSensorOk: (sensor_ok & 0x02) !== 0,
+  };
+}
+// ------------------------------------------------------------------ diagnostics helpers
+const stmtCountCommandsByStatus = db.prepare(`SELECT COUNT(*) as count FROM commands WHERE status = ?`);
+function countCommandsByStatus(status) {
+  return stmtCountCommandsByStatus.get(status).count;
+}
+
+const stmtGetCommandsRecent = db.prepare(`SELECT * FROM commands ORDER BY requested_at DESC LIMIT ?`);
+function getCommandsRecent(limit = 10) {
+  return stmtGetCommandsRecent.all(limit);
+}
+
+function getLatestHeartbeat() {
+  // Alias ke fungsi yang sudah ada
+  return getMasterStatus();
+}
+
+function getLatestNodesensor() {
+  // Alias ke fungsi yang sudah ada
+  return getAllLatest();
+}
+
+function getLatestNodesensorByNode(nodeId) {
+  // Alias ke fungsi yang sudah ada
+  return getLatestByNode(nodeId);
+}
+
+function getCommandStatusHistory(cmdId) {
+  // Karena schema.sql tidak memiliki tabel riwayat khusus untuk status perintah,
+  // kita mengekstrak riwayat dari timestamp yang ada pada tabel commands.
+  const cmd = getCommandById(cmdId);
+  if (!cmd) return [];
+  
+  const history = [{ status: 'created', timestamp: cmd.requested_at }];
+  if (cmd.updated_at > cmd.requested_at) {
+    history.push({ status: cmd.status, timestamp: cmd.updated_at });
+  }
+  if (cmd.confirmed_at) {
+    history.push({ status: 'confirmed', timestamp: cmd.confirmed_at });
+  }
+  return history;
+}
+
+const stmtGetStatusHistoryRecent = db.prepare(`SELECT * FROM status_history ORDER BY received_at DESC LIMIT ?`);
+function getStatusHistoryRecent(limit = 100) {
+  return stmtGetStatusHistoryRecent.all(limit);
+}
+
 module.exports = {
   saveNodesensor,
   getLatestByNode,
@@ -184,4 +270,13 @@ module.exports = {
   getOldestPendingByNode,
   markCommand,
   getStalePending,
+  getWaterLevelFromPayload,
+  decodeSensorOk,
+  countCommandsByStatus,
+  getCommandsRecent,
+  getLatestHeartbeat,
+  getLatestNodesensor,
+  getLatestNodesensorByNode,
+  getCommandStatusHistory,
+  getStatusHistoryRecent
 };

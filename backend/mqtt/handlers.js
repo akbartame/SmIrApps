@@ -1,6 +1,7 @@
 const config = require('../config');
 const repo = require('../db/repository');
 const hub = require('../ws/hub');
+const validator = require('./payloadValidator');
 
 function safeParse(buf) {
   try {
@@ -12,14 +13,27 @@ function safeParse(buf) {
 }
 
 function handleNodesensor(msg) {
-  if (typeof msg.node_id !== 'number' || !msg.source) {
-    console.warn('[mqtt] malformed nodesensor payload, dropping:', msg);
+  let validation;
+  
+  // 1. Validasi Payload
+  if (msg.source === 'relay') {
+    validation = validator.validateRelayStatus(msg);
+  } else if (msg.source === 'sensor') {
+    validation = validator.validateSensorStatus(msg);
+  } else {
+    console.warn('[mqtt] unknown source:', msg.source);
     return;
   }
 
+  if (!validation.valid) {
+    console.warn('[mqtt] malformed nodesensor payload:', validation.errors.join('; '));
+    return;
+  }
+
+  // 2. Logika Asli (Menyimpan & Broadcast)
   const received_at = repo.saveNodesensor(msg);
   hub.broadcast('nodesensor', { ...msg, received_at });
-
+  
   // Only "relay" packets (node 1/2) carry solenoid_state, which is the only
   // thing this backend currently sends commands for.
   if (msg.source === 'relay') {
@@ -28,7 +42,27 @@ function handleNodesensor(msg) {
 }
 
 function handleStatus(msg) {
-  if (msg.device) {
+  let validation;
+  
+  // 1. Validasi Payload
+  if (msg.device === 'MasterBridge') {
+    validation = validator.validateHeartbeat(msg);
+  } else if (msg.event === 'command_send_failed') {
+    validation = validator.validateCommandSendFailed(msg);
+  } else if (msg.event === 'command_not_confirmed') {
+    validation = validator.validateCommandNotConfirmed(msg);
+  } else {
+    console.warn('[mqtt] unknown status shape:', msg);
+    return;
+  }
+
+  if (!validation.valid) {
+    console.warn('[mqtt] malformed status payload:', validation.errors.join('; '));
+    return;
+  }
+
+  // 2. Logika Asli (Menyimpan & Broadcast berdasarkan tipe event/status)
+  if (msg.device === 'MasterBridge') {
     repo.saveHeartbeat(msg);
     hub.broadcast('heartbeat', msg);
     return;
@@ -52,17 +86,12 @@ function handleStatus(msg) {
     const cmd = repo.getOldestPendingByNode(msg.node_id);
     if (cmd) {
       // Docs are explicit: this is NOT necessarily a failure. Leave it
-      // "not_confirmed" and wait for a relay status packet to reconcile —
-      // see reconcileAgainstRelayStatus() and the stale sweeper. The
-      // frontend must keep showing "waiting for confirmation" on this
-      // status, not treat it as failed.
+      // "not_confirmed" and wait for a relay status packet to reconcile
       repo.markCommand(cmd.id, 'not_confirmed', { masterSeq: msg.seq });
       hub.broadcast('command_update', repo.getCommandById(cmd.id));
     }
     return;
   }
-
-  console.warn('[mqtt] unrecognized SmIr/status shape:', msg);
 }
 
 // A relay's periodic (or ack-carrying) status packet reports actual GPIO
