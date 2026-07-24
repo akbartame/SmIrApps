@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardHeader } from '../common/Card';
+import { CollapsibleChartCard } from './CollapsibleChartCard';
 import { HistoryChart } from './HistoryChart';
 import { VoltageCurrentChart } from './VoltageCurrentChart';
 import { OnlineBadge } from '../nodes/OnlineBadge';
@@ -73,22 +74,21 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
   }, [relayPoints]);
 
   return (
-    <Card>
-      <CardHeader
-        title={`Node ${nodeId}`}
-        subtitle={isRelay ? 'Relay — suhu & flow rate' : 'Sensor LoRa — level air & daya'}
-        right={<OnlineBadge info={online[nodeId]} />}
-      />
-
+    <CollapsibleChartCard
+      title={`Node ${nodeId}`}
+      subtitle={isRelay ? 'Relay — suhu & flow rate' : 'Sensor LoRa — level air & daya'}
+      right={<OnlineBadge info={online[nodeId]} />}
+      defaultOpen={false}
+    >
       {error && <p className="text-xs text-danger mb-2">{error}</p>}
       {loading && points.length === 0 && !error && (
         <p className="text-xs text-ink-faint mb-2">Memuat riwayat…</p>
       )}
 
       {isRelay ? (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <p className="text-[11px] text-ink-faint mb-1">Suhu (°C)</p>
+            <p className="text-[11px] text-ink-faint mb-2">Suhu (°C)</p>
             <HistoryChart
               data={temperatureData}
               lines={[{ dataKey: 'temperature_c', name: 'Suhu', color: '#B23B3B' }]}
@@ -96,7 +96,7 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
             />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] text-ink-faint">Flow rate (L/menit)</p>
               <p className="text-[9px] text-ink-faint">Konstanta: {FLOW_CALIBRATION_CONSTANT}</p>
             </div>
@@ -108,9 +108,9 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <p className="text-[11px] text-ink-faint mb-1">Level Air (%)</p>
+            <p className="text-[11px] text-ink-faint mb-2">Level Air (%)</p>
             <HistoryChart
               data={waterLevelData}
               lines={[
@@ -120,11 +120,11 @@ export function NodeHistoryCard({ nodeId, rangeMs }: { nodeId: 1 | 2 | 3 | 4; ra
             />
           </div>
           <div>
-            <p className="text-[11px] text-ink-faint mb-1">Tegangan / Arus</p>
+            <p className="text-[11px] text-ink-faint mb-2">Tegangan / Arus</p>
             <VoltageCurrentChart data={voltageCurrentData} />
           </div>
         </div>
       )}
-    </Card>
+    </CollapsibleChartCard>
   );
 }

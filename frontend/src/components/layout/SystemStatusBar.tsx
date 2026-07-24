@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNodes } from '../../context/NodesContext';
 import { api } from '../../lib/api';
+import { AlertCircle } from 'lucide-react';
 
 const MODE_LABEL: Record<number, string> = {
   0: 'Off',
@@ -42,42 +43,77 @@ export function SystemStatusBar() {
     }
   }
 
+  // Determine overall system health for mobile compact view
+  const wsConnected = wsStatus === 'open';
+  const systemHealthy = wsConnected && backendMqttOk;
+
   return (
-    <header className="sticky top-0 z-10 bg-canvas/90 backdrop-blur border-b border-line">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-display font-semibold text-lg text-ink tracking-tight">
-            SmIr Monitoring
-          </h1>
-          <p className="text-xs text-ink-faint mt-0.5">Live monitoring & kontrol irigasi</p>
+    <header className="bg-surface border-b border-line">
+      {/* Desktop Layout — full information */}
+      <div className="hidden md:block">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display font-semibold text-lg text-ink tracking-tight">
+              SmIr Monitoring
+            </h1>
+            <p className="text-xs text-ink-faint mt-0.5">Live monitoring & kontrol irigasi</p>
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <Pill
+              label="Realtime"
+              ok={wsConnected}
+              okText="Terhubung"
+              badText={wsStatus === 'connecting' ? 'Menyambung…' : 'Terputus'}
+            />
+            <Pill
+              label="MQTT Backend"
+              ok={backendMqttOk}
+              okText="Terhubung"
+              badText="Terputus"
+            />
+            <div className="flex items-center gap-1.5">
+              <span className="text-ink-faint">Mode sistem</span>
+              <span className="font-medium text-ink px-2 py-0.5 rounded-full bg-accent-soft text-accent-strong">
+                {masterStatus ? MODE_LABEL[masterStatus.mode] ?? masterStatus.mode : '—'}
+              </span>
+            </div>
+            <button
+              type="button"
+              disabled={sendingOff}
+              onClick={turnAllOff}
+              title="Mengirim mode 0 — mematikan seluruh sistem secara global"
+              className="px-3 py-1.5 rounded-md border border-danger/30 text-danger text-xs font-medium hover:bg-danger-soft disabled:opacity-50 transition-colors"
+            >
+              {sendingOff ? 'Mengirim…' : 'Matikan Semua'}
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-xs">
-          <Pill
-            label="Realtime"
-            ok={wsStatus === 'open'}
-            okText="Terhubung"
-            badText={wsStatus === 'connecting' ? 'Menyambung…' : 'Terputus'}
-          />
-          <Pill
-            label="MQTT Backend"
-            ok={backendMqttOk}
-            okText="Terhubung"
-            badText="Terputus"
-          />
-          <div className="flex items-center gap-1.5">
-            <span className="text-ink-faint">Mode sistem</span>
-            <span className="font-medium text-ink px-2 py-0.5 rounded-full bg-accent-soft text-accent-strong">
-              {masterStatus ? MODE_LABEL[masterStatus.mode] ?? masterStatus.mode : '—'}
+      </div>
+
+      {/* Mobile Compact Layout — badge + emergency button only */}
+      <div className="md:hidden">
+        <div className="px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium flex-shrink-0 ${
+                systemHealthy
+                  ? 'bg-ok-soft text-ok'
+                  : 'bg-danger-soft text-danger'
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${systemHealthy ? 'bg-ok' : 'bg-danger'}`} aria-hidden />
+              {systemHealthy ? 'Online' : 'Offline'}
             </span>
           </div>
           <button
             type="button"
             disabled={sendingOff}
             onClick={turnAllOff}
-            title="Mengirim mode 0 — mematikan seluruh sistem secara global"
-            className="px-3 py-1.5 rounded-md border border-danger/30 text-danger text-xs font-medium hover:bg-danger-soft disabled:opacity-50"
+            title="Mematikan seluruh sistem (mode 0)"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-danger-soft text-danger text-xs font-medium hover:bg-danger/20 disabled:opacity-50 transition-colors flex-shrink-0"
           >
-            {sendingOff ? 'Mengirim…' : 'Matikan Semua'}
+            <AlertCircle className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">{sendingOff ? 'Mengirim…' : 'Off'}</span>
           </button>
         </div>
       </div>
