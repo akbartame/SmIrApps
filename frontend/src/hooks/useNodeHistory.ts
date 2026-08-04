@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { useNodes } from '../context/NodesContext';
-import type { NodesensorMessage, LoraSensorData, RelaySensorData } from '../types';
+import type { NodesensorMessage, LoraSensorData } from '../types';
 
 export function useNodeHistory(nodeId: number, rangeMs: number) {
   const { latest } = useNodes();

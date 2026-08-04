@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Card, CardHeader } from '../common/Card';
 import { CollapsibleChartCard } from './CollapsibleChartCard';
 import { HistoryChart } from './HistoryChart';
 import { VoltageCurrentChart } from './VoltageCurrentChart';

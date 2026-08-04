@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { Card, CardHeader } from '../common/Card';
+import { Card } from '../common/Card';
 import type { ReactNode } from 'react';
 
 export function CollapsibleChartCard({
