@@ -1,0 +1,189 @@
+@baseUrl = http://localhost:3000
+# Ganti baseUrl dengan URL/Port container Docker Anda jika berbeda.
+
+### ==============================================================================
+### 2.1 AUTOMATION CONFIGURATION ROUTES
+### ==============================================================================
+
+### [API-GET] Mengambil seluruh daftar fase
+# Hasil yang Diharapkan: Array data fase diurutkan berdasarkan order_index (ascending)
+GET {{baseUrl}}/automation/phases
+Accept: application/json
+
+###
+
+### [API-POST-01] Membuat custom phase baru yang valid
+# Hasil yang Diharapkan: 201/200 OK, is_system_phase = false, created_at terisi
+POST {{baseUrl}}/automation/phases
+Content-Type: application/json
+
+{
+  "name": "post-harvest-drain",
+  "min_water_level_pct": 0,
+  "max_water_level_pct": 10,
+  "order_index": 4.5
+}
+
+###
+
+### [API-POST-02] Penolakan nama fase sistem
+# Hasil yang Diharapkan: 400 Bad Request, ditolak karena nama "tanam" sudah dipakai sistem
+POST {{baseUrl}}/automation/phases
+Content-Type: application/json
+
+{
+  "name": "tanam",
+  "min_water_level_pct": 10,
+  "max_water_level_pct": 20,
+  "order_index": 0.5
+}
+
+###
+
+### [API-POST-03] Penolakan konflik order_index
+# Hasil yang Diharapkan: 400 Bad Request, ditolak karena order_index bertabrakan dengan fase sistem
+POST {{baseUrl}}/automation/phases
+Content-Type: application/json
+
+{
+  "name": "fase-baru-error",
+  "min_water_level_pct": 10,
+  "max_water_level_pct": 20,
+  "order_index": 1.0
+}
+
+###
+
+### [API-PUT-01] Memperbarui custom phase (Ganti ID dengan ID custom phase yang valid)
+# Hasil yang Diharapkan: 200 OK, nilai diperbarui
+PUT {{baseUrl}}/automation/phases/16
+Content-Type: application/json
+
+{
+  "min_water_level_pct": 5,
+  "max_water_level_pct": 15,
+  "order_index": 1.5
+}
+
+###
+
+### [API-PUT-02] Memperbarui batas air pada fase sistem (Ganti ID dengan ID 'vegetatif')
+# Hasil yang Diharapkan: 200 OK, min_water_level_pct dan max_water_level_pct diperbarui
+PUT {{baseUrl}}/automation/phases/2
+Content-Type: application/json
+
+{
+  "min_water_level_pct": 55,
+  "max_water_level_pct": 95
+}
+
+###
+
+### [API-PUT-02 rev] Mengembalikan batas air pada fase sistem (Ganti ID dengan ID 'vegetatif')
+# Hasil yang Diharapkan: 200 OK, min_water_level_pct dan max_water_level_pct diperbarui
+PUT {{baseUrl}}/automation/phases/2
+Content-Type: application/json
+
+{
+  "min_water_level_pct": 50,
+  "max_water_level_pct": 100
+}
+
+###
+
+### [API-PUT-03] Penolakan ubah order_index fase sistem (Ganti ID dengan ID 'tanam')
+# Hasil yang Diharapkan: 400/403 Error, order_index bersifat immutable untuk fase sistem
+PUT {{baseUrl}}/automation/phases/1
+Content-Type: application/json
+
+{
+  "order_index": 9.9
+}
+
+###
+
+### [API-DELETE-01] Menghapus custom phase tidak aktif (Ganti ID dengan ID custom phase)
+# Hasil yang Diharapkan: 200 OK, fase berhasil dihapus
+DELETE {{baseUrl}}/automation/phases/16
+
+###
+
+### [API-DELETE-02] Penolakan hapus fase sistem (Ganti ID dengan ID 'tanam')
+# Hasil yang Diharapkan: 400/403 Error, is_system_phase = true tidak bisa dihapus
+DELETE {{baseUrl}}/automation/phases/1
+
+###
+
+
+### ==============================================================================
+### 2.2 FIELD STATE & PHASE TRANSITION ROUTES
+### ==============================================================================
+
+### [API-GET] Mengambil status lahan saat ini
+# Hasil yang Diharapkan: 200 OK, mengembalikan field, automation, dan sensor_health
+GET {{baseUrl}}/automation/state
+Accept: application/json
+
+###
+
+### [API-POST] Memulai musim tanam baru
+# Hasil yang Diharapkan: 200 OK, automation_enabled=false, fase reset ke 'tanam'
+POST {{baseUrl}}/automation/start-season
+Content-Type: application/json
+
+{
+  "confirm": true
+}
+
+###
+
+### [API-POST] Transisi ke fase berikutnya
+# Hasil yang Diharapkan: 200 OK, current_phase_id bergeser, automation_status disesuaikan
+POST {{baseUrl}}/automation/next-phase
+Content-Type: application/json
+
+{
+  "confirm": true
+}
+
+###
+
+### [API-PUT] Pembaruan konfigurasi otomatisasi
+# Hasil yang Diharapkan: 200 OK, nilai min_toggle_interval_ms dan enabled diperbarui
+PUT {{baseUrl}}/automation/state
+Content-Type: application/json
+
+{
+  "automation_enabled": false,
+  "min_toggle_interval_ms": 120000
+}
+
+###
+
+
+### ==============================================================================
+### 2.3 AUTOMATION EVENTS ROUTES
+### ==============================================================================
+
+### [API-GET] Mengambil log peristiwa (tanpa filter, dengan pagination default)
+# Hasil yang Diharapkan: 200 OK, list array events dengan limit dan offset
+GET {{baseUrl}}/automation/events?limit=50&offset=0
+Accept: application/json
+
+###
+
+### [API-GET] Filter log berdasarkan tipe dan status unresolved
+# Hasil yang Diharapkan: 200 OK, array events hanya flow_alert dan resolved_at = null
+GET {{baseUrl}}/automation/events?type=flow_alert&unresolved_only=true
+Accept: application/json
+
+###
+
+### [API-POST] Menyelesaikan sebuah alert (Ganti ID dengan ID event yang valid)
+# Hasil yang Diharapkan: 200 OK, resolved_at terisi timestamp
+POST {{baseUrl}}/automation/events/2/resolve
+Content-Type: application/json
+
+{
+  "confirm": true
+}

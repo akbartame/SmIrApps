@@ -35,7 +35,26 @@ function seedSystemPhases(db, now = Date.now()) {
   tx(DEFAULT_SYSTEM_PHASES);
 }
 
+function ensureAutomationColumns(db) {
+  const fieldColumns = db.prepare("PRAGMA table_info(field_state)").all().map((row) => row.name);
+  if (!fieldColumns.includes('automation_enabled')) {
+    db.exec('ALTER TABLE field_state ADD COLUMN automation_enabled BOOLEAN DEFAULT true');
+  }
+
+  const automationColumns = db.prepare("PRAGMA table_info(automation_state)").all().map((row) => row.name);
+  if (!automationColumns.includes('min_toggle_interval_ms')) {
+    db.exec('ALTER TABLE automation_state ADD COLUMN min_toggle_interval_ms INTEGER DEFAULT 120000');
+  }
+
+  const sensorColumns = db.prepare("PRAGMA table_info(sensor_health)").all().map((row) => row.name);
+  if (!sensorColumns.includes('offline_alert_sent_at')) {
+    db.exec('ALTER TABLE sensor_health ADD COLUMN offline_alert_sent_at INTEGER');
+  }
+}
+
 function seedSingletonAutomationState(db, now = Date.now()) {
+  ensureAutomationColumns(db);
+
   db.exec(`
     INSERT OR IGNORE INTO field_state (
       id, first_planting_date, current_phase_id, phase_started_at, automation_enabled, updated_at
