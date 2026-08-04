@@ -35,6 +35,71 @@ CREATE TABLE IF NOT EXISTS status_history (
 );
 CREATE INDEX IF NOT EXISTS idx_status_history_time ON status_history (received_at);
 
+-- Plant growth phases and the current field season state.
+CREATE TABLE IF NOT EXISTS plant_phases (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  name                  TEXT NOT NULL UNIQUE,
+  min_water_level_pct   INTEGER NOT NULL,
+  max_water_level_pct   INTEGER NOT NULL,
+  is_system_phase       BOOLEAN DEFAULT false,
+  order_index           REAL,
+  created_at            INTEGER NOT NULL,
+  updated_at            INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_plant_phases_order ON plant_phases (order_index, id);
+
+CREATE TABLE IF NOT EXISTS field_state (
+  id                      INTEGER PRIMARY KEY CHECK (id = 1),
+  first_planting_date     INTEGER,
+  current_phase_id        INTEGER NOT NULL REFERENCES plant_phases(id),
+  phase_started_at        INTEGER NOT NULL,
+  automation_enabled      BOOLEAN DEFAULT true,
+  updated_at              INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS phase_transitions (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_phase_id   INTEGER REFERENCES plant_phases(id),
+  to_phase_id     INTEGER NOT NULL REFERENCES plant_phases(id),
+  triggered_at    INTEGER NOT NULL,
+  triggered_by    TEXT NOT NULL,
+  notes           TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_phase_transitions_time ON phase_transitions (triggered_at);
+
+-- Automation audit trail for alerts, warnings, and state changes.
+CREATE TABLE IF NOT EXISTS automation_events (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type    TEXT NOT NULL,
+  severity      TEXT DEFAULT 'info',
+  message       TEXT NOT NULL,
+  triggered_at  INTEGER NOT NULL,
+  resolved_at   INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_automation_events_time ON automation_events (triggered_at);
+CREATE INDEX IF NOT EXISTS idx_automation_events_unresolved ON automation_events (event_type, resolved_at);
+
+-- Runtime state for the automation loop and its rate limiting.
+CREATE TABLE IF NOT EXISTS automation_state (
+  id                      INTEGER PRIMARY KEY CHECK (id = 1),
+  last_check_at           INTEGER,
+  last_water_level        INTEGER,
+  last_solenoid_state     INTEGER,
+  last_action             TEXT,
+  next_allowed_action_at  INTEGER,
+  min_toggle_interval_ms  INTEGER DEFAULT 120000,
+  updated_at              INTEGER NOT NULL
+);
+
+-- Freshness tracking for sensor availability and offline detection.
+CREATE TABLE IF NOT EXISTS sensor_health (
+  id                      INTEGER PRIMARY KEY CHECK (id = 1),
+  sensor_node_ids         TEXT,
+  last_sensor_update_at   INTEGER,
+  offline_alert_sent_at   INTEGER,
+  updated_at              INTEGER NOT NULL
+);
+
 -- Every control command this backend has published, plus its reconciliation
 -- lifecycle. See db/repository.js and mqtt/handlers.js for how status
 -- transitions happen.
