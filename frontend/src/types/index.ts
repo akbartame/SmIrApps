@@ -87,3 +87,5 @@ export type WsMessage =
 export const RELAY_NODE_IDS = [1, 2] as const;
 export const SENSOR_NODE_IDS = [3, 4] as const;
 export const ALL_NODE_IDS = [1, 2, 3, 4] as const;
+
+export type { PlantPhase, FieldState, AutomationState, SensorHealth, AutomationEvent, PhaseInput } from './automation';
