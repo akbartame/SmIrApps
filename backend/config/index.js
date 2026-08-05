@@ -20,6 +20,15 @@ const config = {
   api: {
     port: Number(process.env.API_PORT || 3000),
   },
+  automation: {
+    checkIntervalMs: Number(process.env.AUTOMATION_CHECK_INTERVAL_MS || 5000),
+    sensorOfflineThresholdMs: Number(process.env.SENSOR_OFFLINE_THRESHOLD_MS || 1800000),
+    flowCheckTimeoutMs: Number(process.env.FLOW_CHECK_TIMEOUT_MS || 5000),
+    rateLimitDefaultMs: Number(process.env.RATE_LIMIT_DEFAULT_MS || 120000),
+    sensorNodeIds: (process.env.SENSOR_NODE_IDS || '3,4').split(',').map((value) => Number(value.trim())).filter(Boolean),
+    relayNodeIds: (process.env.RELAY_NODE_IDS || '1,2').split(',').map((value) => Number(value.trim())).filter(Boolean),
+    sensorOfflineCheckIntervalMs: Number(process.env.SENSOR_OFFLINE_CHECK_INTERVAL_MS || 30000),
+  },
   archive: {
     outDir: process.env.ARCHIVE_OUT_DIR || './archive',
     // Reserved for future use — the archiver currently only deletes rows for

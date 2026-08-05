@@ -1,4 +1,5 @@
 const config = require('../config');
+const db = require('../db');
 const repo = require('../db/repository');
 const hub = require('../ws/hub');
 const validator = require('./payloadValidator');
@@ -33,6 +34,14 @@ function handleNodesensor(msg) {
   // 2. Logika Asli (Menyimpan & Broadcast)
   const received_at = repo.saveNodesensor(msg);
   hub.broadcast('nodesensor', { ...msg, received_at });
+
+  if (msg.source === 'sensor' && config.automation.sensorNodeIds.includes(msg.node_id)) {
+    db.prepare(`
+      UPDATE sensor_health
+      SET last_sensor_update_at = ?, updated_at = ?
+      WHERE id = 1
+    `).run(received_at, Date.now());
+  }
   
   // Only "relay" packets (node 1/2) carry solenoid_state, which is the only
   // thing this backend currently sends commands for.
