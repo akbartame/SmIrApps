@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', path: '/', icon: '📊' },
   { label: 'Data Sensor', path: '/sensor', icon: '📡' },
   { label: 'Kontrol Relay', path: '/control', icon: '🎛️' },
+  { label: 'Otomasi', path: '/automation', icon: '⚙️' },
 ];
 
 export function Layout() {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAutomation } from '../../hooks/useAutomation';
 import { useNodes } from '../../context/NodesContext';
 import { api } from '../../lib/api';
 import { AlertCircle } from 'lucide-react';
@@ -43,9 +44,13 @@ export function SystemStatusBar() {
     }
   }
 
+  const { automationState, sensorHealth } = useAutomation();
+
   // Determine overall system health for mobile compact view
   const wsConnected = wsStatus === 'open';
   const systemHealthy = wsConnected && backendMqttOk;
+  const automationStatus = automationState?.enabled ? '✓ Otomasi ON' : '○ Otomasi OFF';
+  const sensorStatus = sensorHealth?.online ? '✓ Sensor OK' : '✗ Sensor Offline';
 
   return (
     <header className="bg-surface border-b border-line">
@@ -73,8 +78,20 @@ export function SystemStatusBar() {
             />
             <div className="flex items-center gap-1.5">
               <span className="text-ink-faint">Mode sistem</span>
-              <span className="font-medium text-ink px-2 py-0.5 rounded-full bg-accent-soft text-accent-strong">
+              <span className="font-medium px-2 py-0.5 rounded-full bg-accent-soft text-accent-strong">
                 {masterStatus ? MODE_LABEL[masterStatus.mode] ?? masterStatus.mode : '—'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-ink-faint">Otomasi</span>
+              <span className="font-medium px-2 py-0.5 rounded-full bg-ok-soft text-ok">
+                {automationStatus}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-ink-faint">Sensor</span>
+              <span className="font-medium px-2 py-0.5 rounded-full bg-canvas text-ink">
+                {sensorStatus}
               </span>
             </div>
             <button
@@ -104,6 +121,10 @@ export function SystemStatusBar() {
               <span className={`w-1.5 h-1.5 rounded-full ${systemHealthy ? 'bg-ok' : 'bg-danger'}`} aria-hidden />
               {systemHealthy ? 'Online' : 'Offline'}
             </span>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="text-[11px] text-ink-faint">{automationStatus}</span>
+            <span className="text-[11px] text-ink-faint">{sensorStatus}</span>
           </div>
           <button
             type="button"

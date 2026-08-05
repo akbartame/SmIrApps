@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNodes } from '../../context/NodesContext';
 import type { CommandRecord } from '../../types';
+import { useAutomation } from '../../hooks/useAutomation';
 
 const WAITING_STATUSES: CommandRecord['status'][] = ['pending', 'not_confirmed'];
 
@@ -11,6 +12,9 @@ export function SolenoidControl({
   nodeId: 1 | 2;
   actualSolenoidState: 0 | 1;
 }) {
+  const { automationState } = useAutomation();
+  const automationActive = automationState?.enabled;
+
   const { commands, publishCommand } = useNodes();
   const [trackedCommandId, setTrackedCommandId] = useState<number | null>(null);
 
@@ -37,7 +41,7 @@ export function SolenoidControl({
       <div className="flex items-center gap-2">
         <button
           type="button"
-          disabled={isWaiting}
+          disabled={isWaiting || automationActive}
           onClick={() => sendCommand(1)}
           className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             actualSolenoidState === 1 && !isWaiting
@@ -49,7 +53,7 @@ export function SolenoidControl({
         </button>
         <button
           type="button"
-          disabled={isWaiting}
+          disabled={isWaiting || automationActive}
           onClick={() => sendCommand(0)}
           className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             actualSolenoidState === 0 && !isWaiting
@@ -62,6 +66,12 @@ export function SolenoidControl({
       </div>
 
       <div className="mt-2 h-4 text-xs">
+        {automationActive && (
+          <span className="flex items-center gap-1.5 text-ink-faint">
+            <span className="w-1.5 h-1.5 rounded-full bg-ink-faint" aria-hidden />
+            Otomasi aktif — kontrol manual dinonaktifkan
+          </span>
+        )}
         {isWaiting && (
           <span className="flex items-center gap-1.5 text-warn">
             <span className="w-1.5 h-1.5 rounded-full bg-warn animate-pulse" aria-hidden />

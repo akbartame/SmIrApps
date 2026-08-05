@@ -2,6 +2,9 @@ import { useNodes } from '../context/NodesContext';
 import { ALL_NODE_IDS } from '../types';
 import { OnlineBadge } from '../components/nodes/OnlineBadge';
 import { Card, CardHeader } from '../components/common/Card';
+import { FieldStateCard } from '../components/automation/FieldStateCard';
+import { AutomationStatusCard } from '../components/automation/AutomationStatusCard';
+import { EventLogViewer } from '../components/automation/EventLogViewer';
 
 export function Dashboard() {
   const { latest, online } = useNodes();
@@ -16,7 +19,11 @@ export function Dashboard() {
           <p className="text-sm text-ink-faint mt-1">Status operasional seluruh node</p>
         </header>
 
-        {/* Single-column on mobile, 2-column on desktop */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <FieldStateCard />
+          <AutomationStatusCard />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
           {ALL_NODE_IDS.map((id) => {
             const data = latest[id];
