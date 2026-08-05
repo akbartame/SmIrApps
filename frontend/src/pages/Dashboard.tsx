@@ -4,7 +4,6 @@ import { OnlineBadge } from '../components/nodes/OnlineBadge';
 import { Card, CardHeader } from '../components/common/Card';
 import { FieldStateCard } from '../components/automation/FieldStateCard';
 import { AutomationStatusCard } from '../components/automation/AutomationStatusCard';
-import { EventLogViewer } from '../components/automation/EventLogViewer';
 
 export function Dashboard() {
   const { latest, online } = useNodes();

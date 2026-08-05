@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronDown, History, AlertCircle, AlertTriangle } from 'lucide-react';
 import { Card } from '../common/Card';
 import { useAutomation } from '../../hooks/useAutomation';
-import type { AutomationEvent } from '../../context/AutomationContext';
+import type { AutomationEvent } from '../../types/automation';
 import { formatRelativeTime } from '../../lib/format';
 
 const SEVERITY_OPTIONS = ['all', 'info', 'warn', 'error'] as const;

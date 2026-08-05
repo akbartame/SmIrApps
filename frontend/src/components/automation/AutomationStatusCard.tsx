@@ -2,7 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 import { Card } from '../common/Card';
 import { useAutomation } from '../../hooks/useAutomation';
 import { formatRelativeTime } from '../../lib/format';
-import { ToggleAutomationButton } from './ToggleAutomationButton';
+import { ToggleAutomationButton } from './ToggleAutomationButton.tsx';
 
 export function AutomationStatusCard() {
   const { currentPhase, automationState, sensorHealth } = useAutomation();
@@ -15,7 +15,7 @@ export function AutomationStatusCard() {
     );
   }
 
-  const sensorStale = sensorHealth?.last_update_ms_ago > 30000;
+  const sensorStale = (sensorHealth?.last_update_ms_ago ?? 0) > 30000;
   const solenoidLabel = automationState.last_solenoid_state === 1 ? 'ON' : 'OFF';
   const targetRange = currentPhase
     ? `${currentPhase.min_water_level_pct}–${currentPhase.max_water_level_pct}%`

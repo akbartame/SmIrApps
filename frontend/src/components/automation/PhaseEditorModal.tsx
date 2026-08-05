@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card } from '../common/Card';
 import { useAutomation } from '../../hooks/useAutomation';
-import type { PhaseInput, PlantPhase } from '../../context/AutomationContext';
+import type { PhaseInput } from '../../types/automation';
 
 export function PhaseEditorModal({
   phaseId,
@@ -39,7 +39,7 @@ export function PhaseEditorModal({
   const isValid = useMemo(
     () =>
       form.min_water_level_pct < form.max_water_level_pct &&
-      (!isCreating || form.name.trim().length > 0),
+      (!isCreating || (form.name?.trim().length ?? 0) > 0),
     [form, isCreating]
   );
 

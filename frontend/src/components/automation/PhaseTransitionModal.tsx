@@ -1,5 +1,5 @@
 import { Card } from '../common/Card';
-import type { PlantPhase } from '../../context/AutomationContext';
+import type { PlantPhase } from '../../types/automation';
 
 const PHASE_TIPS: Record<string, string> = {
   vegetatif: 'Fase vegetatif membutuhkan air 5–10 cm secara konsisten. Biasanya berlangsung 35 hari.',

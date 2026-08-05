@@ -1,10 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Layout } from '../components/layout/Layout';
 import { useAutomation } from '../hooks/useAutomation';
 import { PhaseConfigPanel } from '../components/automation/PhaseConfigPanel';
 import { EventLogViewer } from '../components/automation/EventLogViewer';
 import { PhaseTransitionModal } from '../components/automation/PhaseTransitionModal';
-import { Button } from '../components/common/Button';
 
 export function AutomationSettingsPage() {
   const {
