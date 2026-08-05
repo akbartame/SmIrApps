@@ -59,6 +59,7 @@ type Action =
   | { type: 'ADD_EVENT'; event: AutomationEvent }
   | { type: 'RESOLVE_EVENT'; id: number; resolvedAt: number };
 
+
 function reducer(state: typeof initialState, action: Action) {
   switch (action.type) {
     case 'SET_PHASES':
@@ -166,10 +167,10 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     if (filters?.type) {
       query.set('type', filters.type);
     }
-    const events = await request<AutomationEvent[]>(
+    const response = await request<{ events: AutomationEvent[] }>(
       `/automation/events${query.toString() ? `?${query.toString()}` : ''}`
     );
-    dispatch({ type: 'SET_EVENTS', events });
+    dispatch({ type: 'SET_EVENTS', events: response.events });
   }, []);
 
   const createCustomPhase = useCallback(async (phase: PhaseInput) => {

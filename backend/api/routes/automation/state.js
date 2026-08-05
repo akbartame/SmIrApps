@@ -20,6 +20,15 @@ function getSensorHealth() {
   return db.prepare('SELECT * FROM sensor_health WHERE id = 1').get();
 }
 
+function serializeSensorHealth(row) {
+  if (!row) return null;
+  return {
+    online: Boolean(row.online),
+    last_update_ms_ago: row.last_update_ms_ago,
+    last_update_at: row.last_update_at,
+  };
+}
+
 function getCurrentPhase(phaseId) {
   return db.prepare('SELECT * FROM plant_phases WHERE id = ?').get(phaseId);
 }
@@ -90,6 +99,35 @@ router.get('/state', (req, res) => {
     return res.json(getStateSnapshot());
   } catch (err) {
     console.error('[automation/state] get failed:', err);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+router.get('/field-state', (req, res) => {
+  try {
+    const fieldState = getFieldState();
+    if (!fieldState) {
+      return res.status(404).json({ error: 'field_state_not_initialized' });
+    }
+    return res.json({
+      ...fieldState,
+      automation_enabled: Boolean(fieldState.automation_enabled),
+    });
+  } catch (err) {
+    console.error('[automation/state] field-state get failed:', err);
+    return res.status(500).json({ error: 'internal_error' });
+  }
+});
+
+router.get('/sensor-health', (req, res) => {
+  try {
+    const sensorHealth = getSensorHealth();
+    if (!sensorHealth) {
+      return res.status(404).json({ error: 'sensor_health_not_initialized' });
+    }
+    return res.json(serializeSensorHealth(sensorHealth));
+  } catch (err) {
+    console.error('[automation/state] sensor-health get failed:', err);
     return res.status(500).json({ error: 'internal_error' });
   }
 });
