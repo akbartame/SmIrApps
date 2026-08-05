@@ -140,8 +140,8 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
   );
 
   const loadPhases = useCallback(async () => {
-    const phases = await request<PlantPhase[]>('/automation/phases');
-    dispatch({ type: 'SET_PHASES', phases });
+    const response = await request<{ phases: PlantPhase[] }>('/automation/phases');
+    dispatch({ type: 'SET_PHASES', phases: response.phases });
   }, []);
 
   const loadFieldState = useCallback(async () => {
@@ -150,8 +150,10 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadAutomationState = useCallback(async () => {
-    const automationState = await request<AutomationState>('/automation/state');
-    dispatch({ type: 'SET_AUTOMATION_STATE', automationState });
+    const snapshot = await request<{ automation: AutomationState }>('/automation/state');
+    if (snapshot.automation) {
+      dispatch({ type: 'SET_AUTOMATION_STATE', automationState: snapshot.automation });
+    }
   }, []);
 
   const loadSensorHealth = useCallback(async () => {
@@ -205,30 +207,32 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
   }, [state.phases]);
 
   const startSeason = useCallback(async () => {
-    const fieldState = await request<FieldState>('/automation/season/start', {
+    const response = await request<{ field: FieldState }>('/automation/start-season', {
       method: 'POST',
+      body: JSON.stringify({ confirm: true }),
     });
-    dispatch({ type: 'SET_FIELD_STATE', fieldState });
+    dispatch({ type: 'SET_FIELD_STATE', fieldState: response.field });
   }, []);
 
   const nextPhase = useCallback(async () => {
-    const fieldState = await request<FieldState>('/automation/season/advance', {
+    const response = await request<{ field: FieldState }>('/automation/next-phase', {
       method: 'POST',
+      body: JSON.stringify({ confirm: true }),
     });
-    dispatch({ type: 'SET_FIELD_STATE', fieldState });
+    dispatch({ type: 'SET_FIELD_STATE', fieldState: response.field });
   }, []);
 
   const toggleAutomation = useCallback(async (enabled: boolean) => {
-    const automationState = await request<AutomationState>('/automation/toggle', {
-      method: 'POST',
-      body: JSON.stringify({ enabled }),
+    const automationState = await request<AutomationState>('/automation/state', {
+      method: 'PUT',
+      body: JSON.stringify({ automation_enabled: enabled }),
     });
     dispatch({ type: 'SET_AUTOMATION_STATE', automationState });
   }, []);
 
   const updateRateLimit = useCallback(async (ms: number) => {
-    const automationState = await request<AutomationState>('/automation/rate-limit', {
-      method: 'POST',
+    const automationState = await request<AutomationState>('/automation/state', {
+      method: 'PUT',
       body: JSON.stringify({ min_toggle_interval_ms: ms }),
     });
     dispatch({ type: 'SET_AUTOMATION_STATE', automationState });
