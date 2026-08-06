@@ -10,7 +10,7 @@ const MODE_LABEL: Record<number, string> = {
 };
 
 export function SystemStatusBar() {
-  const { masterStatus, wsStatus, publishCommand } = useNodes();
+  const { masterStatus, wsStatus: websocketStatus, publishCommand } = useNodes();
   const [sendingOff, setSendingOff] = useState(false);
   const [backendMqttOk, setBackendMqttOk] = useState(false);
 
@@ -47,7 +47,7 @@ export function SystemStatusBar() {
   const { automationState, sensorHealth } = useAutomation();
 
   // Determine overall system health for mobile compact view
-  const wsConnected = wsStatus === 'open';
+  const wsConnected = websocketStatus.status === 'open';
   const systemHealthy = wsConnected && backendMqttOk;
   const automationStatus = automationState?.enabled ? '✓ Otomasi ON' : '○ Otomasi OFF';
   const sensorStatus = sensorHealth?.online ? '✓ Sensor OK' : '✗ Sensor Offline';
@@ -68,7 +68,7 @@ export function SystemStatusBar() {
               label="Realtime"
               ok={wsConnected}
               okText="Terhubung"
-              badText={wsStatus === 'connecting' ? 'Menyambung…' : 'Terputus'}
+              badText={websocketStatus.status === 'connecting' ? 'Menyambung…' : 'Terputus'}
             />
             <Pill
               label="MQTT Backend"
