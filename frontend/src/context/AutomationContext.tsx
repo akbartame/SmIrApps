@@ -281,6 +281,8 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     [loadFieldState]
   );
 
+  const websocket = useWebSocket(handleWsMessage);
+
   useEffect(() => {
     loadPhases().catch(() => undefined);
     loadFieldState().catch(() => undefined);
@@ -291,7 +293,7 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
 
   // Setup explicit subscriptions for better performance and cleanup
   useEffect(() => {
-    const { subscribe } = useWebSocket(handleWsMessage);
+    const { subscribe } = websocket;
 
     const unsubPhaseChanged = subscribe('phase_changed', () => {
       loadFieldState().catch(() => undefined);
@@ -312,7 +314,7 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
       unsubSensorHealth();
       unsubEvent();
     };
-  }, [loadFieldState]);
+  }, [loadFieldState, websocket]);
 
   const value = useMemo<AutomationContextType>(
     () => ({
