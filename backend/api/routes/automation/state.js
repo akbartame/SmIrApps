@@ -225,9 +225,15 @@ router.post('/next-phase', (req, res) => {
       new_phase_id: nextPhase.id,
       transitioned_at: ts,
     });
-    hub.broadcast('automation_config_changed', {
-      automation_enabled: automationEnabled,
-      min_toggle_interval_ms: getAutomationState() ? getAutomationState().min_toggle_interval_ms : 120000,
+
+    const updatedAutomationState = getAutomationState();
+    hub.broadcast('automation_state_updated', {
+      enabled: automationEnabled,
+      last_check_at: updatedAutomationState ? updatedAutomationState.last_check_at : null,
+      last_water_level: updatedAutomationState ? updatedAutomationState.last_water_level : null,
+      last_solenoid_state: updatedAutomationState ? updatedAutomationState.last_solenoid_state : null,
+      last_action: updatedAutomationState ? updatedAutomationState.last_action : null,
+      min_toggle_interval_ms: updatedAutomationState ? updatedAutomationState.min_toggle_interval_ms : 120000,
     });
 
     return res.json({
@@ -301,8 +307,13 @@ router.put('/state', (req, res) => {
 
     const updatedFieldState = getFieldState();
     const updatedAutomationState = getAutomationState();
-    hub.broadcast('automation_config_changed', {
-      automation_enabled: Boolean(updatedFieldState && updatedFieldState.automation_enabled),
+    
+    hub.broadcast('automation_state_updated', {
+      enabled: Boolean(updatedFieldState && updatedFieldState.automation_enabled),
+      last_check_at: updatedAutomationState ? updatedAutomationState.last_check_at : null,
+      last_water_level: updatedAutomationState ? updatedAutomationState.last_water_level : null,
+      last_solenoid_state: updatedAutomationState ? updatedAutomationState.last_solenoid_state : null,
+      last_action: updatedAutomationState ? updatedAutomationState.last_action : null,
       min_toggle_interval_ms: updatedAutomationState ? updatedAutomationState.min_toggle_interval_ms : 120000,
     });
 

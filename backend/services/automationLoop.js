@@ -285,11 +285,12 @@ async function runAutomationCycle(mqttClient) {
   });
 
   hub.broadcast('automation_state_updated', {
+    enabled: Boolean(fieldState.automation_enabled),
+    last_check_at: currentTime,
     last_water_level: latestWaterLevel,
     last_solenoid_state: targetSolenoid,
     last_action: action,
-    last_check_at: currentTime,
-    automation_enabled: Boolean(fieldState.automation_enabled),
+    min_toggle_interval_ms: automationState.min_toggle_interval_ms || config.automation.rateLimitDefaultMs,
   });
 }
 

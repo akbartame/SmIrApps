@@ -76,6 +76,14 @@ async function runSensorHealthCheck(mqttClient) {
       if (sensorHealth.offline_alert_sent_at !== null) {
         updateSensorHealth({ lastSensorUpdateAt: latestSensorUpdateAt, offlineAlertSentAt: null });
         createAutomationEvent('sensor_resume', 'info', 'Sensors are back online. Farmer can resume automation.');
+        
+        // Broadcast sensor health update so frontend's context is live
+        hub.broadcast('sensor_health_updated', {
+          online: true,
+          last_update_ms_ago: 0,
+          last_update_at: latestSensorUpdateAt,
+        });
+        
         hub.broadcast('sensor_online_prompt', {
           message: 'Sensors are back online. Farmer can resume automation.',
           triggered_at: nowTs,
@@ -89,6 +97,15 @@ async function runSensorHealthCheck(mqttClient) {
       db.prepare('UPDATE field_state SET automation_enabled = 0, updated_at = ? WHERE id = 1').run(nowTs);
       updateSensorHealth({ lastSensorUpdateAt: latestSensorUpdateAt, offlineAlertSentAt: nowTs });
       createAutomationEvent('sensor_offline', 'error', 'Sensors offline >30 min. Automation paused. All solenoids OFF.');
+      
+      // Broadcast sensor health update so frontend's context is live
+      const timeSinceLastUpdate = latestSensorUpdateAt ? nowTs - latestSensorUpdateAt : null;
+      hub.broadcast('sensor_health_updated', {
+        online: false,
+        last_update_ms_ago: timeSinceLastUpdate,
+        last_update_at: latestSensorUpdateAt,
+      });
+      
       hub.broadcast('sensor_offline_alert', {
         message: 'Sensors offline >30 min. Automation paused.',
         triggered_at: nowTs,

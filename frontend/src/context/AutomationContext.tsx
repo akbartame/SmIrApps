@@ -112,6 +112,7 @@ type AutomationWsMessage =
   | WsMessage
   | { type: 'phase_changed'; data: { current_phase_id: number }; ts: number }
   | { type: 'automation_state_updated'; data: AutomationState; ts: number }
+  | { type: 'sensor_health_updated'; data: SensorHealth; ts: number }
   | { type: 'sensor_offline_alert'; data: { message: string; last_update_ms_ago: number }; ts: number }
   | { type: 'automation_event_created'; data: AutomationEvent; ts: number }
   | { type: 'sensor_online_prompt'; data: { message: string }; ts: number };
@@ -256,6 +257,9 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
           break;
         case 'automation_state_updated':
           dispatch({ type: 'SET_AUTOMATION_STATE', automationState: payload.data });
+          break;
+        case 'sensor_health_updated':
+          dispatch({ type: 'SET_SENSOR_HEALTH', sensorHealth: payload.data });
           break;
         case 'sensor_offline_alert':
           dispatch({ type: 'ADD_EVENT', event: {
