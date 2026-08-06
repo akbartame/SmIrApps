@@ -12,6 +12,18 @@ function initHub(httpServer) {
     clients.add(socket);
     console.log(`[ws] client connected (${clients.size} total)`);
 
+    socket.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data);
+        // Echo heartbeat frames back to client
+        if (msg.type === '__heartbeat__') {
+          socket.send(JSON.stringify({ type: '__heartbeat__' }));
+        }
+      } catch (err) {
+        // Silently ignore invalid JSON on heartbeat handler
+      }
+    });
+
     socket.on('close', () => {
       clients.delete(socket);
       console.log(`[ws] client disconnected (${clients.size} total)`);

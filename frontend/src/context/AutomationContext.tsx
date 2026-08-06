@@ -289,7 +289,30 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
     loadEvents().catch(() => undefined);
   }, [loadEvents, loadFieldState, loadPhases, loadAutomationState, loadSensorHealth]);
 
-  useWebSocket(handleWsMessage);
+  // Setup explicit subscriptions for better performance and cleanup
+  useEffect(() => {
+    const { subscribe } = useWebSocket(handleWsMessage);
+
+    const unsubPhaseChanged = subscribe('phase_changed', () => {
+      loadFieldState().catch(() => undefined);
+    });
+    const unsubAutomationState = subscribe('automation_state_updated', (data) => {
+      dispatch({ type: 'SET_AUTOMATION_STATE', automationState: data });
+    });
+    const unsubSensorHealth = subscribe('sensor_health_updated', (data) => {
+      dispatch({ type: 'SET_SENSOR_HEALTH', sensorHealth: data });
+    });
+    const unsubEvent = subscribe('automation_event_created', (data) => {
+      dispatch({ type: 'ADD_EVENT', event: data });
+    });
+
+    return () => {
+      unsubPhaseChanged();
+      unsubAutomationState();
+      unsubSensorHealth();
+      unsubEvent();
+    };
+  }, [loadFieldState]);
 
   const value = useMemo<AutomationContextType>(
     () => ({
