@@ -84,6 +84,18 @@ function getLatestSensorReading() {
   return stmt.get(...sensorNodeIds);
 }
 
+function getLatestRelayReadings() {
+  const relayNodeIds = config.automation.relayNodeIds;
+  if (!relayNodeIds.length) return [];
+
+  const placeholders = relayNodeIds.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT * FROM nodesensor_latest
+    WHERE source = 'relay' AND node_id IN (${placeholders})
+    ORDER BY node_id ASC, received_at DESC
+  `).all(...relayNodeIds);
+}
+
 function getLatestRelayReading(nodeId = 1) {
   return db.prepare(`
     SELECT * FROM nodesensor_latest
@@ -216,10 +228,16 @@ async function runAutomationCycle(mqttClient) {
   }
 
   console.log('[automation] step 6: checking flow before toggling solenoid ON');
-  const relayReading = getLatestRelayReading(1);
-  const currentSolenoidState = getActualSolenoidState(automationState, relayReading);
+  const relayReadings = getLatestRelayReadings();
+  const currentSolenoidState = relayReadings.length > 0
+    ? relayReadings[0].payload && typeof relayReadings[0].payload === 'string'
+      ? Number(JSON.parse(relayReadings[0].payload).solenoid_state ?? automationState.last_solenoid_state ?? 0)
+      : Number(relayReadings[0].payload?.solenoid_state ?? automationState.last_solenoid_state ?? 0)
+    : Number(automationState.last_solenoid_state ?? 0);
+
   if (targetSolenoid === 1) {
-    const relayHistory = getRelayHistory(1, 30000);
+    const relayReading = relayReadings[0];
+    const relayHistory = relayReading ? getRelayHistory(relayReading.node_id, 30000) : [];
     const latestRelayPayload = relayReading && relayReading.payload ? (typeof relayReading.payload === 'string' ? JSON.parse(relayReading.payload) : relayReading.payload) : null;
     const previousRelayPayload = relayHistory.length > 1 ? (typeof relayHistory[relayHistory.length - 2].payload === 'string' ? JSON.parse(relayHistory[relayHistory.length - 2].payload) : relayHistory[relayHistory.length - 2].payload) : null;
     const latestFlowPulses = latestRelayPayload && typeof latestRelayPayload.flow_pulses === 'number' ? latestRelayPayload.flow_pulses : null;
@@ -250,29 +268,39 @@ async function runAutomationCycle(mqttClient) {
 
   console.log('[automation] step 8: comparing current and target solenoid state');
   let action = 'no_action';
-  if (targetSolenoid !== currentSolenoidState) {
-    const payload = { mode: 1, target_node_id: 1, solenoid_state: targetSolenoid };
-    const commandId = repo.createCommand(payload);
-    try {
-      await publishControl(mqttClient, payload);
-      action = targetSolenoid === 1 ? 'opened_solenoid' : 'closed_solenoid';
-      repo.markCommand(commandId, 'pending');
-      console.log(`[automation] step 8: published MQTT command ${JSON.stringify(payload)}`);
-    } catch (err) {
-      repo.markCommand(commandId, 'send_failed');
-      console.error('[automation] step 8: MQTT publish failed:', err.message);
-      createAutomationEvent('mqtt_publish_failed', 'warn', `Automation could not publish control command: ${err.message}`);
-      updateAutomationState({
-        lastCheckAt: currentTime,
-        lastWaterLevel: latestWaterLevel,
-        lastSolenoidState: currentSolenoidState,
-        lastAction: 'publish_failed',
-        nextAllowedActionAt,
-      });
-      return;
+  const relayNodeIds = config.automation.relayNodeIds;
+  for (const relayNodeId of relayNodeIds) {
+    const relayReading = getLatestRelayReading(relayNodeId);
+    const relayState = relayReading && relayReading.payload
+      ? (typeof relayReading.payload === 'string'
+          ? Number(JSON.parse(relayReading.payload).solenoid_state ?? automationState.last_solenoid_state ?? 0)
+          : Number(relayReading.payload.solenoid_state ?? automationState.last_solenoid_state ?? 0))
+      : Number(automationState.last_solenoid_state ?? 0);
+
+    if (targetSolenoid !== relayState) {
+      const payload = { mode: 1, target_node_id: relayNodeId, solenoid_state: targetSolenoid };
+      const commandId = repo.createCommand(payload);
+      try {
+        await publishControl(mqttClient, payload);
+        action = targetSolenoid === 1 ? 'opened_solenoid' : 'closed_solenoid';
+        repo.markCommand(commandId, 'pending');
+        console.log(`[automation] step 8: published MQTT command ${JSON.stringify(payload)}`);
+      } catch (err) {
+        repo.markCommand(commandId, 'send_failed');
+        console.error('[automation] step 8: MQTT publish failed:', err.message);
+        createAutomationEvent('mqtt_publish_failed', 'warn', `Automation could not publish control command: ${err.message}`);
+        updateAutomationState({
+          lastCheckAt: currentTime,
+          lastWaterLevel: latestWaterLevel,
+          lastSolenoidState: currentSolenoidState,
+          lastAction: 'publish_failed',
+          nextAllowedActionAt,
+        });
+        return;
+      }
+    } else {
+      console.log(`[automation] step 8: relay ${relayNodeId} already at target state; skipping`);
     }
-  } else {
-    console.log('[automation] step 8: no toggle needed; keeping current state');
   }
 
   const nextAllowedAt = currentTime + (automationState.min_toggle_interval_ms || config.automation.rateLimitDefaultMs);
