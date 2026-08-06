@@ -59,14 +59,25 @@ export function AutomationSettingsPage() {
                   {currentPhase?.name ?? '–'}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPhaseTransition(true)}
-                disabled={!nextPhaseCandidate}
-                className="rounded-2xl bg-ok px-4 py-3 text-sm font-semibold text-white transition hover:bg-ok-dark disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                ⏭️ Fase Berikutnya
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {nextPhaseCandidate ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowPhaseTransition(true)}
+                    className="rounded-2xl bg-ok px-4 py-3 text-sm font-semibold text-white transition hover:bg-ok-dark"
+                  >
+                    ⏭️ Fase Berikutnya
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startSeason}
+                    className="rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white transition hover:bg-accent/90"
+                  >
+                    🔄 Mulai Ulang Musim
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -78,12 +78,25 @@ export function formatSensorHealth(sensor_ok: number): {
   };
 }
 
-export function formatRelativeTime(ms: number | null): string {
-  if (ms === null) return 'belum pernah';
-  if (ms < 1000) return 'baru saja';
-  if (ms < 60_000) return `${Math.round(ms / 1000)} dtk lalu`;
-  if (ms < 3_600_000) return `${Math.round(ms / 60_000)} mnt lalu`;
-  return `${Math.round(ms / 3_600_000)} jam lalu`;
+function normalizeTimestampToMs(value: number | null | undefined): number | null {
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+
+  const absValue = Math.abs(value);
+  if (absValue >= 1e12) return value;
+  if (absValue >= 1e9) return value * 1000;
+  return value;
+}
+
+export function formatRelativeTime(value: number | null | undefined): string {
+  const normalized = normalizeTimestampToMs(value);
+  if (normalized === null) return 'belum pernah';
+
+  const deltaMs = Date.now() - normalized;
+  if (deltaMs <= 0) return 'baru saja';
+  if (deltaMs < 60_000) return `${Math.round(deltaMs / 1000)} dtk lalu`;
+  if (deltaMs < 3_600_000) return `${Math.round(deltaMs / 60_000)} mnt lalu`;
+  if (deltaMs < 86_400_000) return `${Math.round(deltaMs / 3_600_000)} jam lalu`;
+  return `${Math.round(deltaMs / 86_400_000)} hari lalu`;
 }
 
 export function formatClockTime(unixMs: number): string {

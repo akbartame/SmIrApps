@@ -242,7 +242,10 @@ export function AutomationProvider({ children }: { children: ReactNode }) {
   const resolveEvent = useCallback(async (id: number) => {
     const result = await request<{ resolved_at: number }>(
       `/automation/events/${id}/resolve`,
-      { method: 'POST' }
+      {
+        method: 'POST',
+        body: JSON.stringify({ confirm: true }),
+      }
     );
     dispatch({ type: 'RESOLVE_EVENT', id, resolvedAt: result.resolved_at });
   }, []);
