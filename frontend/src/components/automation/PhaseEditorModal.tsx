@@ -84,12 +84,12 @@ export function PhaseEditorModal({
             <input
               type="range"
               min="0"
-              max="200"
-              value={form.min_water_level_pct}
+              max="100"
+              value={Math.min(100, Math.max(0, form.min_water_level_pct))}
               onChange={(event) =>
                 setForm({
                   ...form,
-                  min_water_level_pct: Number(event.target.value),
+                  min_water_level_pct: Math.min(100, Math.max(0, Number(event.target.value))),
                 })
               }
               className="w-full"
@@ -102,12 +102,12 @@ export function PhaseEditorModal({
             <input
               type="range"
               min="0"
-              max="200"
-              value={form.max_water_level_pct}
+              max="100"
+              value={Math.min(100, Math.max(0, form.max_water_level_pct))}
               onChange={(event) =>
                 setForm({
                   ...form,
-                  max_water_level_pct: Number(event.target.value),
+                  max_water_level_pct: Math.min(100, Math.max(0, Number(event.target.value))),
                 })
               }
               className="w-full"
