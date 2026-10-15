@@ -71,10 +71,13 @@ further — don't poll `GET /commands/:id` expecting it to move.
 | GET | `/nodes` | latest reading for every node |
 | GET | `/nodes/:id` | latest reading for one node |
 | GET | `/nodes/:id/history?limit=100` | recent readings, **newest-first**, max 1000 — for "recent list" style UI |
-| GET | `/nodes/:id/history?from=<ms>&to=<ms>&limit=5000` | readings in a time window, **chronological**, max 20000 — for chart plotting |
+| GET | `/nodes/:id/history?from=<ms>&to=<ms>&limit=5000` | readings in a time window, **time-bucketed aggregates, chronological**, at most `maxPoints` (default 500, max 2000) slim chart rows — use for charts |
 | GET | `/status` | latest master heartbeat |
 | POST | `/control` | publish a command, returns `{ command_id }` — see body shapes below |
 | GET | `/commands/:id` | poll confirmation status of a published command (fallback; prefer the WS `command_update` event, see below) |
+| GET | `/calibration` | calibration anchors for every calibrated node |
+| GET | `/calibration/:id` | calibration anchors for one node |
+| PUT | `/calibration/:id` | set calibration anchors for a node — body: `{ raw_distance_at_0_pct_mm, raw_distance_at_100_pct_mm }` |
 | WS | `/ws` | real-time push, see below |
 
 ## WebSocket (`/ws`)
@@ -85,10 +88,11 @@ every connected client gets every broadcast. Messages are JSON:
 
 | `type` | `data` | When |
 |---|---|---|
-| `nodesensor` | full `SmIr/nodesensor` message + `received_at` | every inbound relay/sensor reading |
+| `nodesensor` | full `SmIr/nodesensor` message + `received_at` + `calibrated_water_level_pct` | every inbound relay/sensor reading |
 | `heartbeat` | full `SmIr/status` master heartbeat | every ~10s |
 | `command_update` | full row from the `commands` table | whenever a command's status changes (`pending` → `confirmed` / `send_failed` / `not_confirmed` / `stale`) |
 | `status_event` | raw `command_send_failed` / `command_not_confirmed` event | as they occur (informational; command_update is the one to drive UI state off of) |
+| `calibration_updated` | single row from `node_calibrations` | whenever a node's water-level calibration is saved via `PUT /calibration/:id` |
 
 This is what backs "waiting for confirmation" in the frontend: `POST
 /control` returns a `command_id` with `pending` immediately, the UI shows a
@@ -114,6 +118,25 @@ client missed a broadcast while reconnecting.
 sending to 3/4 wouldn't error at the device but also wouldn't do anything
 physically, per the docs — this backend rejects it outright instead of
 publishing a no-op).
+
+## Water level — source of truth
+
+The water level percentage is **derived by this backend from the raw
+ultrasonic echo distance** (`water_distance_mm` on LoRa sensor nodes,
+`distance_mm` on relay nodes) plus the per-node calibration anchors in
+`node_calibrations` (`raw_distance_at_0_pct_mm`, `raw_distance_at_100_pct_mm`):
+
+```
+pct = (d0 − raw) / (d0 − d100) × 100, clamped 0–100
+```
+
+The firmware-reported `water_level` field is accepted and stored
+verbatim but is **not** used for display, charts, or automation —
+`calibrated_water_level_pct` is attached to every `/nodes` response and
+`nodesensor` WS broadcast instead. Nodes without calibration report
+`null` (the automation loop skips its cycle and the UI shows
+"Belum dikalibrasi"). Calibrate via `PUT /calibration/:id` or the
+"Kalibrasi Level Air" panel on the Konfigurasi page.
 
 ## Parquet archiver
 

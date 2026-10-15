@@ -4,16 +4,16 @@ import { useNodes } from '../../context/NodesContext';
 import {
   formatCurrent,
   formatVoltage,
-  formatWaterLevel,
+  formatCalibratedWaterLevel,
   formatSensorHealth,
   isPowerReadingReliable,
   isWaterReadingReliable,
 } from '../../lib/format';
-import type { LoraSensorData } from '../../types';
+import type { NodesensorMessage } from '../../types';
 
 export function SensorNodeCard({ nodeId }: { nodeId: 3 | 4 }) {
   const { latest, online } = useNodes();
-  const data = latest[nodeId] as LoraSensorData | undefined;
+  const data = latest[nodeId] as Extract<NodesensorMessage, { source: 'sensor' }> | undefined;
 
   const powerReliable = data ? isPowerReadingReliable(data.sensor_ok) : true;
   const waterReliable = data ? isWaterReadingReliable(data.sensor_ok) : true;
@@ -40,7 +40,7 @@ export function SensorNodeCard({ nodeId }: { nodeId: 3 | 4 }) {
               )}
             </div>
             <div className="font-mono text-lg text-accent-strong">
-              {formatWaterLevel(data.water_level, data.water_distance_mm, data.sensor_ok)}
+              {formatCalibratedWaterLevel(data.calibrated_water_level_pct, data.water_distance_mm, data.sensor_ok)}
             </div>
             <p className="text-[10px] text-ink-faint mt-0.5">
               Jarak mentah: {data.water_distance_mm} mm (digunakan untuk verifikasi kalibrasi)

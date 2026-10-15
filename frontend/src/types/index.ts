@@ -30,7 +30,37 @@ export type LoraSensorData = {
 
 export type NodesensorMessage = (RelaySensorData | LoraSensorData) & {
   received_at: number; // unix ms, added by backend
+  calibrated_water_level_pct?: number | null; // derived by backend from the raw echo distance + the node's calibration anchors (source of truth for water level %)
 };
+
+export type NodeCalibration = {
+  node_id: number;
+  raw_distance_at_0_pct_mm: number; // raw echo distance (mm) when the tank is empty (0%)
+  raw_distance_at_100_pct_mm: number; // raw echo distance (mm) when the tank is full (100%)
+  updated_at: number;
+};
+
+// Slim time-bucketed history rows returned by
+// GET /nodes/:id/history?from&to&maxPoints — chart-ready, at most
+// maxPoints rows no matter how wide the range is.
+export type SensorHistoryBucket = {
+  x: number; // bucket start, unix ms
+  calibrated_water_level_pct: number | null;
+  voltage_v: number | null;
+  current_ma: number | null;
+  sample_count: number;
+};
+
+export type RelayHistoryBucket = {
+  x: number; // bucket start, unix ms
+  temperature_c: number | null;
+  flow_pulses_first: number | null; // cumulative counter at bucket start
+  flow_pulses_last: number | null; // cumulative counter at bucket end
+  span_s: number; // bucket width in seconds
+  sample_count: number;
+};
+
+export type HistoryBucket = SensorHistoryBucket | RelayHistoryBucket;
 
 export type NodeOnlineInfo = {
   online: boolean;
@@ -82,7 +112,8 @@ export type WsMessage =
   | { type: 'nodesensor'; data: NodesensorMessage; ts: number }
   | { type: 'heartbeat'; data: MasterHeartbeat; ts: number }
   | { type: 'command_update'; data: CommandRecord; ts: number }
-  | { type: 'status_event'; data: StatusEvent; ts: number };
+  | { type: 'status_event'; data: StatusEvent; ts: number }
+  | { type: 'calibration_updated'; data: NodeCalibration; ts: number };
 
 export const RELAY_NODE_IDS = [1, 2] as const;
 export const SENSOR_NODE_IDS = [3, 4] as const;

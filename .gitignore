@@ -1,2 +1,6 @@
 *.http
 makefile
+
+# Local SQLite copies / DB Browser projects — never push database files
+smir.db
+smir.sqbpro

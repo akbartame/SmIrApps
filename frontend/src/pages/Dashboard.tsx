@@ -4,6 +4,26 @@ import { OnlineBadge } from '../components/nodes/OnlineBadge';
 import { Card, CardHeader } from '../components/common/Card';
 import { FieldStateCard } from '../components/automation/FieldStateCard';
 import { AutomationStatusCard } from '../components/automation/AutomationStatusCard';
+import {
+  formatCurrent,
+  formatDistanceMm,
+  formatVoltage,
+} from '../lib/format';
+
+function WaterLevelPercent({ calibratedWaterLevelPct }: { calibratedWaterLevelPct: number | null | undefined }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] text-ink-faint">Level Air</span>
+      <span
+        className={`font-mono text-sm font-medium tabular-nums ${
+          calibratedWaterLevelPct == null ? 'text-ink-faint italic' : 'text-accent-strong'
+        }`}
+      >
+        {calibratedWaterLevelPct == null ? 'Belum dikalibrasi' : `${calibratedWaterLevelPct}%`}
+      </span>
+    </div>
+  );
+}
 
 export function Dashboard() {
   const { latest, online } = useNodes();
@@ -38,8 +58,18 @@ export function Dashboard() {
                   {!data ? (
                     <p className="text-sm text-ink-faint italic">Belum ada data masuk</p>
                   ) : data.source === 'relay' ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center bg-canvas p-3 rounded-lg border border-line">
+                    <div className="flex justify-between items-start gap-4 bg-canvas p-3 rounded-lg border border-line">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] text-ink-faint">Suhu Area</span>
+                        <span className="font-mono text-sm text-ink tabular-nums">
+                          {(data.temperature_c_x100 / 100).toFixed(1)}°C
+                        </span>
+                        <span className="text-[11px] text-ink-faint mt-1">Jarak</span>
+                        <span className="font-mono text-sm text-ink tabular-nums">
+                          {formatDistanceMm(data.distance_mm)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-2 text-right">
                         <div className="flex flex-col">
                           <span className="text-[11px] text-ink-faint">Status Solenoid</span>
                           <span className={`font-mono text-sm font-medium tabular-nums ${
@@ -48,29 +78,28 @@ export function Dashboard() {
                             {data.solenoid_state === 1 ? 'ON' : 'OFF'}
                           </span>
                         </div>
-                        <div className="flex flex-col text-right">
-                          <span className="text-[11px] text-ink-faint">Suhu Area</span>
-                          <span className="font-mono text-sm text-ink tabular-nums">
-                            {(data.temperature_c_x100 / 100).toFixed(1)}°C
-                          </span>
-                        </div>
+                        <WaterLevelPercent calibratedWaterLevelPct={data.calibrated_water_level_pct} />
                       </div>
                     </div>
                   ) : data.source === 'sensor' ? (
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center bg-canvas p-3 rounded-lg border border-line">
+                    <div className="flex justify-between items-start gap-4 bg-canvas p-3 rounded-lg border border-line">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[11px] text-ink-faint">Arus</span>
+                        <span className="font-mono text-sm text-ink tabular-nums">
+                          {formatCurrent(data.current_ma)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-2 text-right">
                         <div className="flex flex-col">
-                          <span className="text-[11px] text-ink-faint">Level Air</span>
-                          <span className="font-mono text-sm font-medium text-accent-strong tabular-nums">
-                            {data.water_level}%
-                          </span>
-                        </div>
-                        <div className="flex flex-col text-right">
                           <span className="text-[11px] text-ink-faint">Tegangan</span>
                           <span className="font-mono text-sm text-ink tabular-nums">
-                            {(data.bus_voltage_mv / 1000).toFixed(2)} V
+                            {formatVoltage(data.bus_voltage_mv)}
                           </span>
                         </div>
+                        <WaterLevelPercent calibratedWaterLevelPct={data.calibrated_water_level_pct} />
+                        <span className="text-[10px] text-ink-faint tabular-nums">
+                          Mentah: {data.water_distance_mm} mm
+                        </span>
                       </div>
                     </div>
                   ) : null}

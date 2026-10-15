@@ -57,17 +57,57 @@ function getHistoryByNode(nodeId, limit = 100) {
   return stmtGetHistoryByNode.all(nodeId, limit).map(parseRow);
 }
 
-// Chronological (ascending) — for chart plotting, unlike getHistoryByNode
-// above which is newest-first for "recent readings list" use.
-const stmtGetHistoryByNodeRange = db.prepare(`
-  SELECT * FROM nodesensor_history
-  WHERE node_id = ? AND received_at >= ? AND received_at <= ?
-  ORDER BY received_at ASC
-  LIMIT ?
+// Time-bucketed aggregates for chart plotting: one indexed range scan
+// returns at most maxPoints slim rows instead of every raw payload.
+// json_extract CASEs mirror the frontend's per-row null rules:
+// distance 0 is unreadable, -12700 is the DS18B20 disconnect sentinel,
+// and power/water fields count only when their sensor_ok bit is set.
+// Boundary flow counters come from indexed point lookups on each
+// bucket's edge timestamps — no window sorts needed.
+const stmtGetHistoryBucketsByNodeRange = db.prepare(`
+  WITH buckets AS (
+    SELECT
+      CAST(received_at / @bucketMs AS INTEGER) AS bucket_id,
+      COUNT(*) AS sample_count,
+      MIN(received_at) AS first_t,
+      MAX(received_at) AS last_t,
+      AVG(CASE WHEN (json_extract(payload, '$.water_distance_mm') > 0)
+                    AND ((json_extract(payload, '$.sensor_ok') & 2) != 0)
+               THEN json_extract(payload, '$.water_distance_mm') END) AS avg_water_distance_mm,
+      AVG(CASE WHEN ((json_extract(payload, '$.sensor_ok') & 1) != 0)
+               THEN json_extract(payload, '$.bus_voltage_mv') END) AS avg_bus_voltage_mv,
+      AVG(CASE WHEN ((json_extract(payload, '$.sensor_ok') & 1) != 0)
+               THEN json_extract(payload, '$.current_ma') END) AS avg_current_ma,
+      AVG(CASE WHEN json_extract(payload, '$.temperature_c_x100') != -12700
+               THEN json_extract(payload, '$.temperature_c_x100') END) AS avg_temperature_c_x100,
+      AVG(CASE WHEN (json_extract(payload, '$.distance_mm') > 0)
+               THEN json_extract(payload, '$.distance_mm') END) AS avg_distance_mm
+    FROM nodesensor_history
+    WHERE node_id = @nodeId AND received_at >= @fromTs AND received_at <= @toTs
+    GROUP BY bucket_id
+  )
+  SELECT
+    bucket_id * @bucketMs AS bucket_start,
+    sample_count,
+    avg_water_distance_mm,
+    avg_bus_voltage_mv,
+    avg_current_ma,
+    avg_temperature_c_x100,
+    avg_distance_mm,
+    (SELECT json_extract(h.payload, '$.flow_pulses')
+       FROM nodesensor_history h
+       WHERE h.node_id = @nodeId AND h.received_at = buckets.first_t
+       ORDER BY h.id ASC LIMIT 1) AS flow_pulses_first,
+    (SELECT json_extract(h.payload, '$.flow_pulses')
+       FROM nodesensor_history h
+       WHERE h.node_id = @nodeId AND h.received_at = buckets.last_t
+       ORDER BY h.id DESC LIMIT 1) AS flow_pulses_last
+  FROM buckets
+  ORDER BY bucket_id ASC
 `);
 
-function getHistoryByNodeRange(nodeId, fromTs, toTs, limit = 5000) {
-  return stmtGetHistoryByNodeRange.all(nodeId, fromTs, toTs, limit).map(parseRow);
+function getHistoryBucketsByNodeRange(nodeId, fromTs, toTs, bucketMs) {
+  return stmtGetHistoryBucketsByNodeRange.all({ nodeId, fromTs, toTs, bucketMs });
 }
 
 // -------------------------------------------------------------- master/status
@@ -170,33 +210,36 @@ function getStalePending(cutoffTs) {
   return stmtGetStalePending.all(cutoffTs);
 }
 
-/**
- * Extract water level from sensor payload.
- * Handles both old (water_level_a, water_level_b) and new format.
- * Returns null if neither format present.
- */
-function getWaterLevelFromPayload(payload) {
-  const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
+// ------------------------------------------------------------------ calibrations
 
-  // New format: water_level + water_distance_mm
-  if (parsed.water_level !== undefined && parsed.water_distance_mm !== undefined) {
-    return {
-      level_pct: parsed.water_level,
-      distance_mm: parsed.water_distance_mm,
-      source: 'new',
-    };
-  }
+const stmtGetCalibration = db.prepare(`SELECT * FROM node_calibrations WHERE node_id = ?`);
+const stmtGetAllCalibrations = db.prepare(`SELECT * FROM node_calibrations ORDER BY node_id`);
+const stmtUpsertCalibration = db.prepare(`
+  INSERT INTO node_calibrations (node_id, raw_distance_at_0_pct_mm, raw_distance_at_100_pct_mm, updated_at)
+  VALUES (@node_id, @raw_distance_at_0_pct_mm, @raw_distance_at_100_pct_mm, @updated_at)
+  ON CONFLICT(node_id) DO UPDATE SET
+    raw_distance_at_0_pct_mm = excluded.raw_distance_at_0_pct_mm,
+    raw_distance_at_100_pct_mm = excluded.raw_distance_at_100_pct_mm,
+    updated_at = excluded.updated_at
+`);
 
-  // Old format: water_level_a + water_level_b (average them)
-  if (parsed.water_level_a !== undefined && parsed.water_level_b !== undefined) {
-    return {
-      level_pct: (parsed.water_level_a + parsed.water_level_b) / 2,
-      distance_mm: null,
-      source: 'old',
-    };
-  }
+function getCalibration(nodeId) {
+  return stmtGetCalibration.get(nodeId) || null;
+}
 
-  return null;
+function getAllCalibrations() {
+  return stmtGetAllCalibrations.all();
+}
+
+function upsertCalibration({ nodeId, rawDistanceAt0PctMm, rawDistanceAt100PctMm }) {
+  const updatedAt = Date.now();
+  stmtUpsertCalibration.run({
+    node_id: nodeId,
+    raw_distance_at_0_pct_mm: rawDistanceAt0PctMm,
+    raw_distance_at_100_pct_mm: rawDistanceAt100PctMm,
+    updated_at: updatedAt,
+  });
+  return getCalibration(nodeId);
 }
 
 /**
@@ -261,7 +304,7 @@ module.exports = {
   getLatestByNode,
   getAllLatest,
   getHistoryByNode,
-  getHistoryByNodeRange,
+  getHistoryBucketsByNodeRange,
   saveHeartbeat,
   saveStatusEvent,
   getMasterStatus,
@@ -270,8 +313,10 @@ module.exports = {
   getOldestPendingByNode,
   markCommand,
   getStalePending,
-  getWaterLevelFromPayload,
   decodeSensorOk,
+  getCalibration,
+  getAllCalibrations,
+  upsertCalibration,
   countCommandsByStatus,
   getCommandsRecent,
   getLatestHeartbeat,

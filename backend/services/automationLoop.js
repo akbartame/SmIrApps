@@ -3,6 +3,7 @@ const repo = require('../db/repository');
 const hub = require('../ws/hub');
 const config = require('../config');
 const { publishControl } = require('../mqtt/publisher');
+const waterLevel = require('./waterLevel');
 
 let automationTimer = null;
 
@@ -114,22 +115,6 @@ function getRelayHistory(nodeId = 1, sinceMs = 30000) {
   `).all(nodeId, cutoff);
 }
 
-function getWaterLevelFromPayload(payload) {
-  if (!payload) return null;
-
-  const parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;
-  const derived = repo.getWaterLevelFromPayload(parsed);
-  if (derived && typeof derived.level_pct === 'number') {
-    return Number(derived.level_pct);
-  }
-
-  if (typeof parsed.water_level === 'number') {
-    return Number(parsed.water_level);
-  }
-
-  return null;
-}
-
 function getActualSolenoidState(automationState, relayReading) {
   if (relayReading && relayReading.payload) {
     const payload = typeof relayReading.payload === 'string' ? JSON.parse(relayReading.payload) : relayReading.payload;
@@ -173,7 +158,9 @@ async function runAutomationCycle(mqttClient) {
 
   console.log('[automation] step 3: reading current phase and water level target');
   const currentPhase = db.prepare('SELECT * FROM plant_phases WHERE id = ?').get(fieldState.current_phase_id);
-  const latestWaterLevel = getWaterLevelFromPayload(latestSensorReading.payload);
+  // Source of truth: raw echo distance calibrated per node.
+  // null (uncalibrated / unreadable) falls into the invalid-data path below.
+  const latestWaterLevel = waterLevel.deriveCalibratedWaterLevelPctFromStoredReading(latestSensorReading);
   if (!currentPhase) {
     console.log('[automation] step 3: current phase not found; exiting cycle');
     updateAutomationState({
@@ -186,7 +173,7 @@ async function runAutomationCycle(mqttClient) {
     return;
   }
 
-  console.log(`[automation] step 3: phase=${currentPhase.name}, min=${currentPhase.min_water_level_pct}, max=${currentPhase.max_water_level_pct}, waterLevel=${latestWaterLevel}`);
+  console.log(`[automation] step 3: phase=${currentPhase.name}, min=${currentPhase.min_water_level_pct}, max=${currentPhase.max_water_level_pct}, calibratedWaterLevel=${latestWaterLevel}`);
 
   console.log('[automation] step 4: applying hysteresis logic');
   let targetSolenoid = 0;

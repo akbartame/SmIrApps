@@ -6,6 +6,7 @@ import type {
   CommandRecord,
   ControlPayload,
   MasterHeartbeat,
+  NodeCalibration,
   NodeOnlineInfo,
   NodesensorMessage,
   WsMessage,
@@ -16,25 +17,34 @@ type State = {
   online: Record<number, NodeOnlineInfo>;
   masterStatus: MasterHeartbeat | null;
   commands: Record<number, CommandRecord>;
+  calibrations: Record<number, NodeCalibration>;
   bootstrapped: boolean;
   bootstrapError: string | null;
 };
 
 type Action =
-  | { type: 'BOOTSTRAP_OK'; latest: NodesensorMessage[]; status: MasterHeartbeat | null }
+  | { type: 'BOOTSTRAP_OK'; latest: NodesensorMessage[]; status: MasterHeartbeat | null; calibrations: NodeCalibration[] }
   | { type: 'BOOTSTRAP_ERROR'; error: string }
   | { type: 'NODESENSOR'; data: NodesensorMessage }
   | { type: 'HEARTBEAT'; data: MasterHeartbeat }
-  | { type: 'COMMAND_UPDATE'; data: CommandRecord };
+  | { type: 'COMMAND_UPDATE'; data: CommandRecord }
+  | { type: 'CALIBRATION_UPDATED'; data: NodeCalibration };
 
 const initialState: State = {
   latest: {},
   online: {},
   masterStatus: null,
   commands: {},
+  calibrations: {},
   bootstrapped: false,
   bootstrapError: null,
 };
+
+function toCalibrationRecord(calibrations: NodeCalibration[]): Record<number, NodeCalibration> {
+  const record: Record<number, NodeCalibration> = {};
+  for (const calibration of calibrations) record[calibration.node_id] = calibration;
+  return record;
+}
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -48,6 +58,7 @@ function reducer(state: State, action: Action): State {
           ? Object.fromEntries(Object.entries(action.status.nodes).map(([k, v]) => [Number(k), v]))
           : {},
         masterStatus: action.status,
+        calibrations: toCalibrationRecord(action.calibrations),
         bootstrapped: true,
         bootstrapError: null,
       };
@@ -66,6 +77,11 @@ function reducer(state: State, action: Action): State {
       };
     case 'COMMAND_UPDATE':
       return { ...state, commands: { ...state.commands, [action.data.id]: action.data } };
+    case 'CALIBRATION_UPDATED':
+      return {
+        ...state,
+        calibrations: { ...state.calibrations, [action.data.node_id]: action.data },
+      };
     default:
       return state;
   }
@@ -76,6 +92,10 @@ type Ctx = State & {
   /** True online/offline per the last heartbeat — NOT inferred from `latest`. */
   isOnline: (nodeId: number) => boolean;
   publishCommand: (payload: ControlPayload) => Promise<CommandRecord>;
+  saveCalibration: (
+    nodeId: number,
+    values: { raw_distance_at_0_pct_mm: number; raw_distance_at_100_pct_mm: number }
+  ) => Promise<NodeCalibration>;
 };
 
 const NodesContext = createContext<Ctx | null>(null);
@@ -87,11 +107,18 @@ export function NodesProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const [latest, status] = await Promise.all([
+        const [latest, status, calibrationResponse] = await Promise.all([
           api.getAllLatestNodes(),
           api.getMasterStatus().catch(() => null), // no heartbeat yet is a valid initial state
+          api.getCalibrations().catch(() => ({ calibrations: [] as NodeCalibration[] })), // no calibration yet is valid
         ]);
-        if (!cancelled) dispatch({ type: 'BOOTSTRAP_OK', latest, status });
+        if (!cancelled)
+          dispatch({
+            type: 'BOOTSTRAP_OK',
+            latest,
+            status,
+            calibrations: calibrationResponse.calibrations,
+          });
       } catch (err) {
         if (!cancelled) {
           dispatch({
@@ -110,6 +137,7 @@ export function NodesProvider({ children }: { children: ReactNode }) {
     if (msg.type === 'nodesensor') dispatch({ type: 'NODESENSOR', data: msg.data });
     else if (msg.type === 'heartbeat') dispatch({ type: 'HEARTBEAT', data: msg.data });
     else if (msg.type === 'command_update') dispatch({ type: 'COMMAND_UPDATE', data: msg.data });
+    else if (msg.type === 'calibration_updated') dispatch({ type: 'CALIBRATION_UPDATED', data: msg.data });
     // 'status_event' is informational-only for now — command_update already
     // carries the derived state the UI needs.
   }, []);
@@ -143,9 +171,21 @@ export function NodesProvider({ children }: { children: ReactNode }) {
     return seeded;
   }, []);
 
+  const saveCalibration = useCallback(
+    async (
+      nodeId: number,
+      values: { raw_distance_at_0_pct_mm: number; raw_distance_at_100_pct_mm: number }
+    ) => {
+      const updated = await api.updateCalibration(nodeId, values);
+      dispatch({ type: 'CALIBRATION_UPDATED', data: updated });
+      return updated;
+    },
+    []
+  );
+
   const value = useMemo<Ctx>(
-    () => ({ ...state, wsStatus, isOnline, publishCommand }),
-    [state, wsStatus, isOnline, publishCommand]
+    () => ({ ...state, wsStatus, isOnline, publishCommand, saveCalibration }),
+    [state, wsStatus, isOnline, publishCommand, saveCalibration]
   );
 
   return <NodesContext.Provider value={value}>{children}</NodesContext.Provider>;

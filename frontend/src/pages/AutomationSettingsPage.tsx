@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAutomation } from '../hooks/useAutomation';
 import { PhaseConfigPanel } from '../components/automation/PhaseConfigPanel';
+import { CalibrationPanel } from '../components/config/CalibrationPanel';
 import { EventLogViewer } from '../components/automation/EventLogViewer';
 import { PhaseTransitionModal } from '../components/automation/PhaseTransitionModal';
 
@@ -29,10 +30,10 @@ export function AutomationSettingsPage() {
         <header className="space-y-3">
           <div>
             <h2 className="text-xl md:text-2xl font-display font-semibold text-ink">
-              Pengaturan Otomasi
+              Pengaturan Konfigurasi
             </h2>
             <p className="text-sm text-ink-faint mt-1">
-              Konfigurasi fase, laju respons, dan status otomasi.
+              Konfigurasi fase, kalibrasi level air, dan status otomasi.
             </p>
           </div>
         </header>
@@ -83,6 +84,7 @@ export function AutomationSettingsPage() {
         )}
 
         <PhaseConfigPanel />
+        <CalibrationPanel />
         <EventLogViewer />
       </div>
 

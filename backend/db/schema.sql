@@ -100,6 +100,18 @@ CREATE TABLE IF NOT EXISTS sensor_health (
   updated_at              INTEGER NOT NULL
 );
 
+-- Per-node ultrasonic calibration anchors: the raw echo distances
+-- (mm) that map to 0% (empty tank, largest distance) and 100%
+-- (full tank, smallest distance). The calibrated water level % is
+-- derived from the raw echo distance with these anchors — the
+-- firmware-reported water_level field is NOT the source of truth.
+CREATE TABLE IF NOT EXISTS node_calibrations (
+  node_id                    INTEGER PRIMARY KEY,
+  raw_distance_at_0_pct_mm   INTEGER NOT NULL,
+  raw_distance_at_100_pct_mm INTEGER NOT NULL,
+  updated_at                 INTEGER NOT NULL
+);
+
 -- Every control command this backend has published, plus its reconciliation
 -- lifecycle. See db/repository.js and mqtt/handlers.js for how status
 -- transitions happen.

@@ -3,6 +3,7 @@ const db = require('../db');
 const repo = require('../db/repository');
 const hub = require('../ws/hub');
 const validator = require('./payloadValidator');
+const waterLevel = require('../services/waterLevel');
 
 function safeParse(buf) {
   try {
@@ -33,7 +34,10 @@ function handleNodesensor(msg) {
 
   // 2. Logika Asli (Menyimpan & Broadcast)
   const received_at = repo.saveNodesensor(msg);
-  hub.broadcast('nodesensor', { ...msg, received_at });
+  // Source of truth for water level is the raw echo distance
+  // calibrated per node — not the firmware-reported water_level.
+  const calibrated_water_level_pct = waterLevel.deriveCalibratedWaterLevelPct(msg);
+  hub.broadcast('nodesensor', { ...msg, received_at, calibrated_water_level_pct });
 
   if (msg.source === 'sensor' && config.automation.sensorNodeIds.includes(msg.node_id)) {
     db.prepare(`

@@ -1,5 +1,3 @@
-import type { RelaySensorData } from '../types';
-
 const UNREADABLE = 'Sensor tidak terbaca';
 
 /**
@@ -56,13 +54,22 @@ export function formatCurrent(current_ma: number): string {
 }
 
 /**
- * Format water level percentage and raw distance for calibration verification[cite: 3].
+ * Format the calibrated water level percentage (derived by the backend
+ * from the raw echo distance + the node's calibration anchors) next
+ * to the raw distance for calibration verification.
  */
-export function formatWaterLevel(water_level: number, water_distance_mm: number, sensor_ok: number): string {
-  if (!isWaterReadingReliable(sensor_ok)) {
-    return `Sensor tidak terbaca (raw: ${water_distance_mm}mm)`;
+export function formatCalibratedWaterLevel(
+  calibratedWaterLevelPct: number | null | undefined,
+  rawDistanceMm: number,
+  sensorOk: number
+): string {
+  if (calibratedWaterLevelPct === null || calibratedWaterLevelPct === undefined) {
+    return 'Belum dikalibrasi';
   }
-  return `${water_level}% (${water_distance_mm} mm)`;
+  if (!isWaterReadingReliable(sensorOk)) {
+    return `Sensor tidak terbaca (raw: ${rawDistanceMm}mm)`;
+  }
+  return `${calibratedWaterLevelPct}% (${rawDistanceMm} mm)`;
 }
 
 /**
@@ -108,18 +115,18 @@ export function formatClockTime(unixMs: number): string {
 }
 
 /**
- * flow_pulses is cumulative since node boot. Given two readings, returns the
- * pulse delta over the elapsed time — or null if the node rebooted in
- * between (pulses went down), per the documented caveat.
+ * Format a "milliseconds ago" duration (e.g. heartbeat seen_ms_ago).
+ * Unlike formatRelativeTime — whose input is an absolute unix timestamp —
+ * the input here is a duration, so no Date.now() subtraction happens.
  */
-export function computeFlowDelta(
-  prev: Pick<RelaySensorData, 'flow_pulses'> & { received_at: number },
-  curr: Pick<RelaySensorData, 'flow_pulses'> & { received_at: number }
-): { pulses: number; seconds: number } | null {
-  if (curr.flow_pulses < prev.flow_pulses) return null; // node rebooted
-  const seconds = (curr.received_at - prev.received_at) / 1000;
-  if (seconds <= 0) return null;
-  return { pulses: curr.flow_pulses - prev.flow_pulses, seconds };
+export function formatDurationMsAgo(msAgo: number | null | undefined): string {
+  if (msAgo === null || msAgo === undefined || Number.isNaN(msAgo)) return 'belum pernah';
+
+  if (msAgo <= 0) return 'baru saja';
+  if (msAgo < 60_000) return `${Math.round(msAgo / 1000)} dtk lalu`;
+  if (msAgo < 3_600_000) return `${Math.round(msAgo / 60_000)} mnt lalu`;
+  if (msAgo < 86_400_000) return `${Math.round(msAgo / 3_600_000)} jam lalu`;
+  return `${Math.round(msAgo / 86_400_000)} hari lalu`;
 }
 
 /**

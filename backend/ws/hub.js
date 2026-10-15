@@ -35,7 +35,7 @@ function initHub(httpServer) {
 }
 
 // Message shape sent to clients: { type, data, ts }
-// Types currently emitted: 'nodesensor' | 'heartbeat' | 'command_update' | 'status_event'
+// Types currently emitted: 'nodesensor' | 'heartbeat' | 'command_update' | 'status_event' | 'calibration_updated'
 function broadcast(type, data) {
   if (!wss) return;
   const msg = JSON.stringify({ type, data, ts: Date.now() });

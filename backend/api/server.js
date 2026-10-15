@@ -9,6 +9,7 @@ const diagnosticsRouter = require('./routes/diagnostics');
 const phasesRouter = require('./routes/automation/phases');
 const stateRouter = require('./routes/automation/state');
 const eventsRouter = require('./routes/automation/events');
+const calibrationRouter = require('./routes/calibration');
 
 function createApp(mqttClient) {
   const app = express();
@@ -25,6 +26,7 @@ function createApp(mqttClient) {
   app.use('/automation', phasesRouter);
   app.use('/automation', stateRouter);
   app.use('/automation', eventsRouter);
+  app.use('/calibration', calibrationRouter);
 
   // Buat objek stats yang dievaluasi secara dinamis
   const systemStats = {

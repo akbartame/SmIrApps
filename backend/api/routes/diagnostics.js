@@ -6,6 +6,7 @@
 const express = require('express');
 const repo = require('../../db/repository');
 const config = require('../../config');
+const waterLevel = require('../../services/waterLevel');
 
 module.exports = function diagnosticsRouter(stats) {
   // stats: { mqttConnected, lastMessageAt, commandsPending, etc. }
@@ -21,7 +22,7 @@ module.exports = function diagnosticsRouter(stats) {
       mqtt_connected: stats.mqttConnected,
       last_mqtt_message: stats.lastMessageAt,
       uptime_ms: process.uptime() * 1000,
-      broker: config.mqtt.broker,
+      broker: config.mqtt.url,
     });
   });
 
@@ -43,7 +44,7 @@ module.exports = function diagnosticsRouter(stats) {
     const latestNodeStatus = repo.getLatestNodesensor(); // Node 1–4
 
     res.json({
-      broker: config.mqtt.broker,
+      broker: config.mqtt.url,
       mqtt_connected: stats.mqttConnected,
       mode: latestHeartbeat?.mode,
       nodes_online: latestHeartbeat?.nodes,
@@ -100,12 +101,13 @@ module.exports = function diagnosticsRouter(stats) {
       node_id: nodeId,
       source: latest.source,
       received_at: new Date(latest.received_at).toISOString(),
+      calibrated_water_level_pct: waterLevel.deriveCalibratedWaterLevelPct(latest),
       payload: latest,
       validation_notes:
         latest.source === 'relay'
           ? `solenoid_state=${latest.solenoid_state} is ground truth at measurement time`
           : latest.source === 'sensor'
-            ? `water_level=${latest.water_level}%, raw_distance=${latest.water_distance_mm}mm, sensor_ok=0x${latest.sensor_ok.toString(16)}`
+            ? `calibrated_water_level=${waterLevel.deriveCalibratedWaterLevelPct(latest) ?? 'n/a'}%, raw_distance=${latest.water_distance_mm}mm, sensor_ok=0x${latest.sensor_ok.toString(16)}`
             : '',
     });
   });
